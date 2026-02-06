@@ -2,29 +2,70 @@
 
 ## Project Overview
 
-**Marble Race** is a greenfield project. The repository has been initialized with foundational guidelines but no application code has been written yet. This file serves as the authoritative guide for AI assistants working on this codebase.
+**Football Marble Race** is a browser-based game where AI-controlled marbles play football (soccer) on an HTML5 Canvas field. Two teams are selected, their marbles autonomously chase a ball, and goals are scored when the ball enters either net. Matches last 60 seconds, with full replay and JSON export support.
 
 ## Repository Status
 
-- **State**: Pre-development — no source code, build system, or CI/CD pipeline exists yet
 - **Remote**: `origin` at `mttcamarda-dev/marblerace`
 - **Branches**: Development happens on `claude/` prefixed feature branches
-- **Structure**: Currently only this file (`CLAUDE.md`) exists at the repository root
+
+## Project Structure
+
+```
+marblerace/
+├── CLAUDE.md       ← This file — project guide for AI assistants
+└── index.html      ← Complete game (HTML + CSS + JS, single file)
+```
+
+## Tech Stack
+
+- **Language**: Vanilla JavaScript (ES6+), no frameworks or build tools
+- **Rendering**: HTML5 Canvas 2D (`<canvas>` element, 900×500)
+- **Styling**: Inline `<style>` block
+- **Dependencies**: None — zero external libraries, runs in any modern browser
 
 ## Quick Reference
 
-No build, test, or lint commands are configured yet. Update this section as tooling is added:
-
 ```
-# Build
-(not yet configured)
+# Run locally — just open the file in a browser
+open index.html
 
-# Test
-(not yet configured)
-
-# Lint
-(not yet configured)
+# No build, test, or lint tooling is configured yet
 ```
+
+## Architecture
+
+The game is a self-contained single HTML file with three logical layers:
+
+### Game Objects (Classes)
+- **`Ball`** — the football. Has position, velocity, friction, and wall-bounce physics.
+- **`Marble`** — a team marble with simple AI. Chases the ball, tries to push it toward the opponent's goal, and retreats defensively when far from the ball.
+
+### Physics & Collision
+- **`circleCollision(a, b)`** — detects overlap between two circles.
+- **`resolveElasticCollision(a, b, massA, massB)`** — separates overlapping circles and applies impulse-based elastic response with restitution. Used for marble↔ball and marble↔marble collisions.
+- **`isInGoal(ball, goal)`** — AABB check: returns true when the ball overlaps a goal rectangle.
+
+### Game Flow
+1. **Team selection** — two `<select>` dropdowns populated from the `teams[]` array (10 Serie A clubs with name, color, accent, and power rating).
+2. **`startMatch()`** — initializes marbles, ball, score, timer, replay buffer; starts the `requestAnimationFrame` loop.
+3. **`gameLoop(timestamp)`** — runs at ~60 FPS. Each tick: AI think → update positions → resolve collisions → check goals → draw → record replay frame.
+4. **`endMatch()`** — stops the loop, shows result, enables replay controls and download button.
+
+### Replay System
+- Every frame is pushed to `replayData.frames[]` with marble positions, ball position, score, and elapsed time.
+- After the match, a slider + play/pause buttons let the user scrub through frames.
+- **JSON export**: `replayData` (frames + goal events + team info) is serialized and downloaded as a `.json` file.
+
+### Key Constants (top of `<script>`)
+| Constant | Value | Purpose |
+|---|---|---|
+| `MATCH_DURATION` | 60 | Match length in seconds |
+| `BALL_RADIUS` | 14 | Football radius in px |
+| `MARBLE_RADIUS` | 20 | Marble radius in px |
+| `GOAL_WIDTH` | 10 | Goal depth in px |
+| `GOAL_HEIGHT` | 140 | Goal opening in px |
+| `FPS` | 60 | Target frames per second |
 
 ## Development Guidelines
 
@@ -49,42 +90,18 @@ No build, test, or lint commands are configured yet. Update this section as tool
 - Keep related files close together
 - Use descriptive file and directory names
 - Avoid deeply nested directory structures when a flatter layout is clearer
+- The game is currently a single `index.html`; if it grows, split into `style.css` and `game.js`
 
 ### Testing
 
-- Write tests alongside new features
+- No test framework is configured yet
+- Write tests alongside new features when a framework is introduced
 - Tests should be deterministic and independent of each other
 - Prefer testing behavior over implementation details
 
-## Architecture & Tech Stack
+## UI Language
 
-Not yet established. When the tech stack is chosen, document here:
-
-- Language(s) and runtime versions
-- Framework(s) and key libraries
-- Database / storage
-- Project directory layout (e.g., `src/`, `tests/`, `public/`)
-
-## Environment Setup
-
-No setup steps required yet. Update this section when dependencies and tooling are introduced:
-
-1. Prerequisites (runtime, package manager, etc.)
-2. Install dependencies
-3. Environment variables (reference `.env.example` if applicable)
-4. Local development server
-
-## CI/CD
-
-No CI/CD pipeline is configured. When added, document:
-
-- Pipeline tool (GitHub Actions, etc.)
-- Triggers (on push, on PR, etc.)
-- Steps (lint, test, build, deploy)
-
-## Conventions
-
-Document naming conventions, patterns, and team decisions here as they emerge during development.
+The interface text is in **Italian** (buttons, log messages, goal announcements). Maintain this convention when adding user-facing strings.
 
 ## Updating This File
 
