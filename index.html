@@ -131,7 +131,7 @@
 
     .match-log {
       margin-top: 12px;
-      max-width: 700px;
+      max-width: 520px;
       width: 100%;
       font-size: 0.85rem;
       color: #aaa;
@@ -153,7 +153,7 @@
 
 <div class="scoreboard" id="scoreboard"></div>
 
-<canvas id="game" width="700" height="700"></canvas>
+<canvas id="game" width="520" height="520"></canvas>
 
 <div class="replay-controls" id="replayControls" style="display:none;">
   <button id="replayPlay">Riproduci</button>
@@ -169,21 +169,21 @@
 // ─── Configuration ──────────────────────────────────────────────
 const MATCH_DURATION = 60;
 const BALL_RADIUS = 12;
-const MARBLE_RADIUS = 18;
-const MARBLES_PER_TEAM = 5;
+const MARBLE_RADIUS = 24;
+const MARBLES_PER_TEAM = 1;
 const FPS = 60;
 const FRAME_MS = 1000 / FPS;
 
 // Circular field
-const FIELD_CX = 350;
-const FIELD_CY = 350;
-const FIELD_RADIUS = 300;
+const FIELD_CX = 260;
+const FIELD_CY = 260;
+const FIELD_RADIUS = 220;
 
 // Rotating goal: angular width in radians (~25°)
 const GOAL_ARC = 0.44;
 // One full rotation in ~10 seconds at 60 FPS
 const GOAL_SPEED = (2 * Math.PI) / (10 * FPS);
-const GOAL_NET_DEPTH = 28;
+const GOAL_NET_DEPTH = 22;
 
 // ─── Teams ──────────────────────────────────────────────────────
 const teams = [
@@ -200,161 +200,401 @@ const teams = [
 ];
 
 // ─── Team Logo Drawing Functions ────────────────────────────────
-// Each draws a simplified crest centered at (0,0) fitting inside radius r
+// Each draws a simplified but recognizable crest at (0,0) inside radius r
 
 function drawMilanLogo(ctx, r) {
-  // Red-black vertical stripes in a circle
+  // Shield with red cross + red-black stripes
+  const s = r * 0.65;
   ctx.save();
   ctx.beginPath();
-  ctx.arc(0, 0, r * 0.75, 0, Math.PI * 2);
+  ctx.moveTo(0, -s);
+  ctx.lineTo(s, -s * 0.3);
+  ctx.lineTo(s, s * 0.5);
+  ctx.quadraticCurveTo(0, s * 1.1, 0, s * 1.1);
+  ctx.quadraticCurveTo(0, s * 1.1, -s, s * 0.5);
+  ctx.lineTo(-s, -s * 0.3);
+  ctx.closePath();
   ctx.clip();
-  const sw = r * 0.35;
+  // Red-black stripes
+  const sw = s * 0.5;
   for (let i = -2; i <= 2; i++) {
     ctx.fillStyle = i % 2 === 0 ? "#AC1E2D" : "#000";
-    ctx.fillRect(i * sw - sw / 2, -r, sw, r * 2);
+    ctx.fillRect(i * sw - sw / 2, -r, sw, r * 2.5);
   }
+  // White cross on top half
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(-s * 0.08, -s * 0.8, s * 0.16, s * 0.9);
+  ctx.fillRect(-s * 0.45, -s * 0.5, s * 0.9, s * 0.16);
   ctx.restore();
 }
 
 function drawInterLogo(ctx, r) {
-  // Blue-black vertical stripes
+  // Blue-black circle with gold "IM"
+  const s = r * 0.7;
+  ctx.beginPath();
+  ctx.arc(0, 0, s, 0, Math.PI * 2);
+  ctx.fillStyle = "#0055A4";
+  ctx.fill();
+  ctx.strokeStyle = "#C5A44E";
+  ctx.lineWidth = s * 0.12;
+  ctx.stroke();
+  // Blue-black stripes clipped
   ctx.save();
   ctx.beginPath();
-  ctx.arc(0, 0, r * 0.75, 0, Math.PI * 2);
+  ctx.arc(0, 0, s * 0.85, 0, Math.PI * 2);
   ctx.clip();
-  const sw = r * 0.35;
+  const sw = s * 0.38;
   for (let i = -2; i <= 2; i++) {
     ctx.fillStyle = i % 2 === 0 ? "#0055A4" : "#000";
-    ctx.fillRect(i * sw - sw / 2, -r, sw, r * 2);
+    ctx.fillRect(i * sw - sw / 2, -r, sw, r * 2.5);
   }
   ctx.restore();
+  // Gold "IM" letters
+  ctx.font = `bold ${s * 0.7}px serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#C5A44E";
+  ctx.fillText("IM", 0, s * 0.05);
 }
 
 function drawJuventusLogo(ctx, r) {
-  // Black-white shield with J
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(-r * 0.4, -r * 0.6, r * 0.8, r * 1.2);
+  // Black-white shield with stylized J
+  const s = r * 0.65;
+  // Shield shape
+  ctx.beginPath();
+  ctx.moveTo(0, -s);
+  ctx.lineTo(s * 0.8, -s * 0.3);
+  ctx.lineTo(s * 0.8, s * 0.4);
+  ctx.quadraticCurveTo(0, s * 1.15, 0, s * 1.15);
+  ctx.quadraticCurveTo(0, s * 1.15, -s * 0.8, s * 0.4);
+  ctx.lineTo(-s * 0.8, -s * 0.3);
+  ctx.closePath();
   ctx.fillStyle = "#000";
-  ctx.fillRect(-r * 0.15, -r * 0.6, r * 0.3, r * 1.2);
-  ctx.font = `bold ${r}px sans-serif`;
+  ctx.fill();
+  // White left half
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(-r, -r, r, r * 2);
+  ctx.clip();
+  ctx.beginPath();
+  ctx.moveTo(0, -s);
+  ctx.lineTo(s * 0.8, -s * 0.3);
+  ctx.lineTo(s * 0.8, s * 0.4);
+  ctx.quadraticCurveTo(0, s * 1.15, 0, s * 1.15);
+  ctx.quadraticCurveTo(0, s * 1.15, -s * 0.8, s * 0.4);
+  ctx.lineTo(-s * 0.8, -s * 0.3);
+  ctx.closePath();
+  ctx.fillStyle = "#fff";
+  ctx.fill();
+  ctx.restore();
+  // J letter
+  ctx.font = `bold ${s * 1.1}px serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "#fff";
-  ctx.fillText("J", 0, 0);
+  ctx.fillStyle = "#000";
+  ctx.fillText("J", s * 0.05, s * 0.15);
 }
 
 function drawRomaLogo(ctx, r) {
-  // Maroon circle with gold ASR
+  // Maroon-gold circle with wolf silhouette
+  const s = r * 0.7;
   ctx.beginPath();
-  ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+  ctx.arc(0, 0, s, 0, Math.PI * 2);
   ctx.fillStyle = "#8E1F2F";
   ctx.fill();
-  ctx.font = `bold ${r * 0.65}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  ctx.strokeStyle = "#F0BC42";
+  ctx.lineWidth = s * 0.12;
+  ctx.stroke();
+  // Simplified wolf head
   ctx.fillStyle = "#F0BC42";
-  ctx.fillText("R", 0, 0);
+  ctx.beginPath();
+  // Ears
+  ctx.moveTo(-s * 0.35, -s * 0.15);
+  ctx.lineTo(-s * 0.25, -s * 0.55);
+  ctx.lineTo(-s * 0.05, -s * 0.2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(s * 0.35, -s * 0.15);
+  ctx.lineTo(s * 0.25, -s * 0.55);
+  ctx.lineTo(s * 0.05, -s * 0.2);
+  ctx.fill();
+  // Head
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s * 0.3, s * 0.25, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Snout
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.25, s * 0.15, s * 0.12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Eyes
+  ctx.fillStyle = "#8E1F2F";
+  ctx.beginPath();
+  ctx.arc(-s * 0.12, -s * 0.05, s * 0.06, 0, Math.PI * 2);
+  ctx.arc(s * 0.12, -s * 0.05, s * 0.06, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawNapoliLogo(ctx, r) {
-  // Blue circle with white N
+  // Blue circle with white ornate N
+  const s = r * 0.7;
   ctx.beginPath();
-  ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+  ctx.arc(0, 0, s, 0, Math.PI * 2);
   ctx.fillStyle = "#1E90FF";
   ctx.fill();
-  ctx.font = `bold ${r * 0.8}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#fff";
-  ctx.fillText("N", 0, 0);
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = s * 0.1;
+  ctx.stroke();
+  // Stylized N
+  ctx.lineWidth = s * 0.15;
+  ctx.strokeStyle = "#fff";
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.3, s * 0.35);
+  ctx.lineTo(-s * 0.3, -s * 0.35);
+  ctx.lineTo(s * 0.3, s * 0.35);
+  ctx.lineTo(s * 0.3, -s * 0.35);
+  ctx.stroke();
+  ctx.lineCap = "butt";
 }
 
 function drawLazioLogo(ctx, r) {
-  // Light blue with eagle-like shape (simplified as wings)
+  // Light blue with white eagle
+  const s = r * 0.7;
   ctx.beginPath();
-  ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+  ctx.arc(0, 0, s, 0, Math.PI * 2);
   ctx.fillStyle = "#87CEEB";
   ctx.fill();
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = s * 0.08;
+  ctx.stroke();
+  // Eagle body
   ctx.fillStyle = "#fff";
   ctx.beginPath();
-  ctx.moveTo(0, -r * 0.35);
-  ctx.lineTo(-r * 0.5, r * 0.15);
-  ctx.lineTo(0, 0);
-  ctx.lineTo(r * 0.5, r * 0.15);
+  ctx.moveTo(0, -s * 0.15);
+  ctx.lineTo(-s * 0.15, s * 0.3);
+  ctx.lineTo(s * 0.15, s * 0.3);
+  ctx.closePath();
+  ctx.fill();
+  // Eagle head
+  ctx.beginPath();
+  ctx.arc(0, -s * 0.25, s * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+  // Beak
+  ctx.beginPath();
+  ctx.moveTo(s * 0.1, -s * 0.25);
+  ctx.lineTo(s * 0.22, -s * 0.2);
+  ctx.lineTo(s * 0.1, -s * 0.18);
+  ctx.closePath();
+  ctx.fillStyle = "#F0BC42";
+  ctx.fill();
+  // Wings spread
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.1, -s * 0.05);
+  ctx.quadraticCurveTo(-s * 0.55, -s * 0.5, -s * 0.6, -s * 0.15);
+  ctx.quadraticCurveTo(-s * 0.45, s * 0.05, -s * 0.15, s * 0.15);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(s * 0.1, -s * 0.05);
+  ctx.quadraticCurveTo(s * 0.55, -s * 0.5, s * 0.6, -s * 0.15);
+  ctx.quadraticCurveTo(s * 0.45, s * 0.05, s * 0.15, s * 0.15);
   ctx.closePath();
   ctx.fill();
 }
 
 function drawFiorentinaLogo(ctx, r) {
-  // Purple with fleur-de-lis (simplified)
+  // Purple background with red giglio (fleur-de-lis of Florence)
+  const s = r * 0.7;
   ctx.beginPath();
-  ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+  ctx.arc(0, 0, s, 0, Math.PI * 2);
   ctx.fillStyle = "#6A0DAD";
   ctx.fill();
-  ctx.font = `bold ${r * 0.9}px serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#fff";
-  ctx.fillText("\u269C", 0, r * 0.05);
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = s * 0.08;
+  ctx.stroke();
+  // Giglio (fleur-de-lis)
+  const g = s * 0.75;
+  ctx.fillStyle = "#D2122E";
+  // Center petal
+  ctx.beginPath();
+  ctx.moveTo(0, -g * 0.7);
+  ctx.bezierCurveTo(-g * 0.2, -g * 0.5, -g * 0.15, -g * 0.1, -g * 0.05, g * 0.05);
+  ctx.lineTo(g * 0.05, g * 0.05);
+  ctx.bezierCurveTo(g * 0.15, -g * 0.1, g * 0.2, -g * 0.5, 0, -g * 0.7);
+  ctx.fill();
+  // Left petal
+  ctx.beginPath();
+  ctx.moveTo(-g * 0.08, -g * 0.15);
+  ctx.bezierCurveTo(-g * 0.5, -g * 0.55, -g * 0.65, -g * 0.15, -g * 0.45, g * 0.1);
+  ctx.bezierCurveTo(-g * 0.35, g * 0.15, -g * 0.15, g * 0.05, -g * 0.08, -g * 0.05);
+  ctx.closePath();
+  ctx.fill();
+  // Right petal
+  ctx.beginPath();
+  ctx.moveTo(g * 0.08, -g * 0.15);
+  ctx.bezierCurveTo(g * 0.5, -g * 0.55, g * 0.65, -g * 0.15, g * 0.45, g * 0.1);
+  ctx.bezierCurveTo(g * 0.35, g * 0.15, g * 0.15, g * 0.05, g * 0.08, -g * 0.05);
+  ctx.closePath();
+  ctx.fill();
+  // Stem
+  ctx.fillRect(-g * 0.06, g * 0.05, g * 0.12, g * 0.35);
+  // Base bar
+  ctx.beginPath();
+  ctx.moveTo(-g * 0.22, g * 0.35);
+  ctx.lineTo(g * 0.22, g * 0.35);
+  ctx.lineTo(g * 0.18, g * 0.48);
+  ctx.lineTo(-g * 0.18, g * 0.48);
+  ctx.closePath();
+  ctx.fill();
+  // Stamens (3 dots on top)
+  ctx.beginPath();
+  ctx.arc(0, -g * 0.72, g * 0.06, 0, Math.PI * 2);
+  ctx.arc(-g * 0.25, -g * 0.35, g * 0.05, 0, Math.PI * 2);
+  ctx.arc(g * 0.25, -g * 0.35, g * 0.05, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawAtalantaLogo(ctx, r) {
-  // Black-blue diagonal
+  // Black-blue vertical halves with white goddess silhouette
+  const s = r * 0.7;
   ctx.save();
   ctx.beginPath();
-  ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+  ctx.arc(0, 0, s, 0, Math.PI * 2);
   ctx.clip();
+  // Left half: black
   ctx.fillStyle = "#1C1C1C";
-  ctx.fillRect(-r, -r, r * 2, r * 2);
+  ctx.fillRect(-r, -r, r, r * 2);
+  // Right half: blue
   ctx.fillStyle = "#0074D9";
+  ctx.fillRect(0, -r, r, r * 2);
+  ctx.restore();
+  // Border
   ctx.beginPath();
-  ctx.moveTo(-r, -r);
-  ctx.lineTo(r, -r);
-  ctx.lineTo(-r, r);
+  ctx.arc(0, 0, s, 0, Math.PI * 2);
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = s * 0.08;
+  ctx.stroke();
+  // Goddess head silhouette
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(0, -s * 0.15, s * 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  // Hair flowing left
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.15, -s * 0.25);
+  ctx.quadraticCurveTo(-s * 0.45, -s * 0.15, -s * 0.35, s * 0.15);
+  ctx.quadraticCurveTo(-s * 0.2, s * 0.05, -s * 0.1, -s * 0.05);
   ctx.closePath();
   ctx.fill();
-  ctx.restore();
-  ctx.font = `bold ${r * 0.65}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#fff";
-  ctx.fillText("A", 0, 0);
+  // Neck + shoulders
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.1, s * 0.02);
+  ctx.lineTo(-s * 0.3, s * 0.35);
+  ctx.lineTo(s * 0.3, s * 0.35);
+  ctx.lineTo(s * 0.1, s * 0.02);
+  ctx.closePath();
+  ctx.fill();
 }
 
 function drawTorinoLogo(ctx, r) {
-  // Dark red with bull silhouette (simplified as T with horns)
+  // Maroon circle with golden bull (toro)
+  const s = r * 0.7;
   ctx.beginPath();
-  ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+  ctx.arc(0, 0, s, 0, Math.PI * 2);
   ctx.fillStyle = "#8B0000";
   ctx.fill();
-  ctx.font = `bold ${r * 0.7}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  ctx.strokeStyle = "#C5A44E";
+  ctx.lineWidth = s * 0.1;
+  ctx.stroke();
+  // Bull silhouette
   ctx.fillStyle = "#fff";
-  ctx.fillText("T", 0, r * 0.05);
+  // Body
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.15, s * 0.4, s * 0.22, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Head
+  ctx.beginPath();
+  ctx.ellipse(0, -s * 0.15, s * 0.2, s * 0.17, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Left horn (curved outward)
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.15, -s * 0.28);
+  ctx.quadraticCurveTo(-s * 0.45, -s * 0.6, -s * 0.3, -s * 0.65);
+  ctx.quadraticCurveTo(-s * 0.2, -s * 0.55, -s * 0.12, -s * 0.35);
+  ctx.closePath();
+  ctx.fill();
+  // Right horn
+  ctx.beginPath();
+  ctx.moveTo(s * 0.15, -s * 0.28);
+  ctx.quadraticCurveTo(s * 0.45, -s * 0.6, s * 0.3, -s * 0.65);
+  ctx.quadraticCurveTo(s * 0.2, -s * 0.55, s * 0.12, -s * 0.35);
+  ctx.closePath();
+  ctx.fill();
+  // Legs (4 stubs)
+  ctx.fillRect(-s * 0.3, s * 0.3, s * 0.1, s * 0.2);
+  ctx.fillRect(-s * 0.1, s * 0.3, s * 0.1, s * 0.2);
+  ctx.fillRect(s * 0.05, s * 0.3, s * 0.1, s * 0.2);
+  ctx.fillRect(s * 0.22, s * 0.3, s * 0.1, s * 0.2);
+  // Tail
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = s * 0.05;
+  ctx.beginPath();
+  ctx.moveTo(s * 0.38, s * 0.05);
+  ctx.quadraticCurveTo(s * 0.55, -s * 0.15, s * 0.45, -s * 0.3);
+  ctx.stroke();
+  // Eyes (dark)
+  ctx.fillStyle = "#8B0000";
+  ctx.beginPath();
+  ctx.arc(-s * 0.08, -s * 0.18, s * 0.04, 0, Math.PI * 2);
+  ctx.arc(s * 0.08, -s * 0.18, s * 0.04, 0, Math.PI * 2);
+  ctx.fill();
+  // Nostrils
+  ctx.beginPath();
+  ctx.arc(-s * 0.06, -s * 0.06, s * 0.025, 0, Math.PI * 2);
+  ctx.arc(s * 0.06, -s * 0.06, s * 0.025, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawBolognaLogo(ctx, r) {
-  // Red-blue diagonal split
+  // Red-blue halved shield with white BFC
+  const s = r * 0.65;
+  // Shield
   ctx.save();
   ctx.beginPath();
-  ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
-  ctx.clip();
-  ctx.fillStyle = "#A41E35";
-  ctx.fillRect(-r, -r, r * 2, r * 2);
-  ctx.fillStyle = "#1B3D6D";
-  ctx.beginPath();
-  ctx.moveTo(r, -r);
-  ctx.lineTo(r, r);
-  ctx.lineTo(-r, r);
+  ctx.moveTo(0, -s);
+  ctx.lineTo(s, -s * 0.3);
+  ctx.lineTo(s, s * 0.5);
+  ctx.quadraticCurveTo(0, s * 1.1, 0, s * 1.1);
+  ctx.quadraticCurveTo(0, s * 1.1, -s, s * 0.5);
+  ctx.lineTo(-s, -s * 0.3);
   ctx.closePath();
-  ctx.fill();
+  ctx.clip();
+  // Left half red
+  ctx.fillStyle = "#A41E35";
+  ctx.fillRect(-r, -r, r, r * 2.5);
+  // Right half blue
+  ctx.fillStyle = "#1B3D6D";
+  ctx.fillRect(0, -r, r, r * 2.5);
   ctx.restore();
-  ctx.font = `bold ${r * 0.6}px sans-serif`;
+  // Shield border
+  ctx.beginPath();
+  ctx.moveTo(0, -s);
+  ctx.lineTo(s, -s * 0.3);
+  ctx.lineTo(s, s * 0.5);
+  ctx.quadraticCurveTo(0, s * 1.1, 0, s * 1.1);
+  ctx.quadraticCurveTo(0, s * 1.1, -s, s * 0.5);
+  ctx.lineTo(-s, -s * 0.3);
+  ctx.closePath();
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = s * 0.08;
+  ctx.stroke();
+  // BFC text
+  ctx.font = `bold ${s * 0.45}px sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#fff";
-  ctx.fillText("B", 0, 0);
+  ctx.fillText("BFC", 0, s * 0.1);
 }
 
 // ─── DOM ────────────────────────────────────────────────────────
@@ -711,7 +951,7 @@ function drawField() {
 
   // Center circle
   ctx.beginPath();
-  ctx.arc(FIELD_CX, FIELD_CY, 50, 0, Math.PI * 2);
+  ctx.arc(FIELD_CX, FIELD_CY, 36, 0, Math.PI * 2);
   ctx.strokeStyle = "rgba(255,255,255,0.15)";
   ctx.lineWidth = 1.5;
   ctx.stroke();
@@ -823,15 +1063,11 @@ function logEvent(msg) {
 // ─── Marble Creation ────────────────────────────────────────────
 function createTeamMarbles(team, side) {
   const marbles = [];
-  const baseAngle = side === "left" ? Math.PI : 0;
-  for (let i = 0; i < MARBLES_PER_TEAM; i++) {
-    const offset = (i - (MARBLES_PER_TEAM - 1) / 2) * 0.35;
-    const angle = baseAngle + offset;
-    const dist = FIELD_RADIUS * 0.45;
-    const x = FIELD_CX + Math.cos(angle) * dist;
-    const y = FIELD_CY + Math.sin(angle) * dist;
-    marbles.push(new Marble(team, x, y, `${team.name}-${i}`));
-  }
+  const angle = side === "left" ? Math.PI : 0;
+  const dist = FIELD_RADIUS * 0.4;
+  const x = FIELD_CX + Math.cos(angle) * dist;
+  const y = FIELD_CY + Math.sin(angle) * dist;
+  marbles.push(new Marble(team, x, y, team.name));
   return marbles;
 }
 
