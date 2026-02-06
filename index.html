@@ -91,8 +91,8 @@
 
     canvas {
       border: 3px solid #333;
-      border-radius: 4px;
-      background: #0b6623;
+      border-radius: 50%;
+      background: #111;
       display: block;
       max-width: 100%;
     }
@@ -131,7 +131,7 @@
 
     .match-log {
       margin-top: 12px;
-      max-width: 900px;
+      max-width: 700px;
       width: 100%;
       font-size: 0.85rem;
       color: #aaa;
@@ -153,7 +153,7 @@
 
 <div class="scoreboard" id="scoreboard"></div>
 
-<canvas id="game" width="900" height="500"></canvas>
+<canvas id="game" width="700" height="700"></canvas>
 
 <div class="replay-controls" id="replayControls" style="display:none;">
   <button id="replayPlay">Riproduci</button>
@@ -167,28 +167,195 @@
 
 <script>
 // ─── Configuration ──────────────────────────────────────────────
-const MATCH_DURATION = 60;        // seconds
-const BALL_RADIUS = 14;
-const MARBLE_RADIUS = 20;
-const GOAL_WIDTH = 10;
-const GOAL_HEIGHT = 140;
-const FIELD_LINE_COLOR = "rgba(255,255,255,0.25)";
+const MATCH_DURATION = 60;
+const BALL_RADIUS = 12;
+const MARBLE_RADIUS = 18;
+const MARBLES_PER_TEAM = 5;
 const FPS = 60;
 const FRAME_MS = 1000 / FPS;
 
+// Circular field
+const FIELD_CX = 350;
+const FIELD_CY = 350;
+const FIELD_RADIUS = 300;
+
+// Rotating goal: angular width in radians (~25°)
+const GOAL_ARC = 0.44;
+// One full rotation in ~10 seconds at 60 FPS
+const GOAL_SPEED = (2 * Math.PI) / (10 * FPS);
+const GOAL_NET_DEPTH = 28;
+
 // ─── Teams ──────────────────────────────────────────────────────
 const teams = [
-  { name: "Milan",     color: "#AC1E2D", accent: "#000",    power: 1.00 },
-  { name: "Inter",     color: "#0055A4", accent: "#000",    power: 1.05 },
-  { name: "Juventus",  color: "#000000", accent: "#fff",    power: 1.03 },
-  { name: "Roma",      color: "#8E1F2F", accent: "#F0BC42", power: 0.98 },
-  { name: "Napoli",    color: "#1E90FF", accent: "#fff",    power: 1.04 },
-  { name: "Lazio",     color: "#87CEEB", accent: "#fff",    power: 0.97 },
-  { name: "Fiorentina",color: "#6A0DAD", accent: "#fff",    power: 0.96 },
-  { name: "Atalanta",  color: "#1C1C1C", accent: "#0074D9", power: 1.01 },
-  { name: "Torino",    color: "#8B0000", accent: "#fff",    power: 0.95 },
-  { name: "Bologna",   color: "#A41E35", accent: "#1B3D6D", power: 0.94 },
+  { name: "Milan",      color: "#AC1E2D", accent: "#000",    power: 1.00, logo: drawMilanLogo },
+  { name: "Inter",      color: "#0055A4", accent: "#000",    power: 1.05, logo: drawInterLogo },
+  { name: "Juventus",   color: "#000000", accent: "#fff",    power: 1.03, logo: drawJuventusLogo },
+  { name: "Roma",       color: "#8E1F2F", accent: "#F0BC42", power: 0.98, logo: drawRomaLogo },
+  { name: "Napoli",     color: "#1E90FF", accent: "#fff",    power: 1.04, logo: drawNapoliLogo },
+  { name: "Lazio",      color: "#87CEEB", accent: "#fff",    power: 0.97, logo: drawLazioLogo },
+  { name: "Fiorentina", color: "#6A0DAD", accent: "#fff",    power: 0.96, logo: drawFiorentinaLogo },
+  { name: "Atalanta",   color: "#1C1C1C", accent: "#0074D9", power: 1.01, logo: drawAtalantaLogo },
+  { name: "Torino",     color: "#8B0000", accent: "#fff",    power: 0.95, logo: drawTorinoLogo },
+  { name: "Bologna",    color: "#A41E35", accent: "#1B3D6D", power: 0.94, logo: drawBolognaLogo },
 ];
+
+// ─── Team Logo Drawing Functions ────────────────────────────────
+// Each draws a simplified crest centered at (0,0) fitting inside radius r
+
+function drawMilanLogo(ctx, r) {
+  // Red-black vertical stripes in a circle
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.75, 0, Math.PI * 2);
+  ctx.clip();
+  const sw = r * 0.35;
+  for (let i = -2; i <= 2; i++) {
+    ctx.fillStyle = i % 2 === 0 ? "#AC1E2D" : "#000";
+    ctx.fillRect(i * sw - sw / 2, -r, sw, r * 2);
+  }
+  ctx.restore();
+}
+
+function drawInterLogo(ctx, r) {
+  // Blue-black vertical stripes
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.75, 0, Math.PI * 2);
+  ctx.clip();
+  const sw = r * 0.35;
+  for (let i = -2; i <= 2; i++) {
+    ctx.fillStyle = i % 2 === 0 ? "#0055A4" : "#000";
+    ctx.fillRect(i * sw - sw / 2, -r, sw, r * 2);
+  }
+  ctx.restore();
+}
+
+function drawJuventusLogo(ctx, r) {
+  // Black-white shield with J
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(-r * 0.4, -r * 0.6, r * 0.8, r * 1.2);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(-r * 0.15, -r * 0.6, r * 0.3, r * 1.2);
+  ctx.font = `bold ${r}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#fff";
+  ctx.fillText("J", 0, 0);
+}
+
+function drawRomaLogo(ctx, r) {
+  // Maroon circle with gold ASR
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+  ctx.fillStyle = "#8E1F2F";
+  ctx.fill();
+  ctx.font = `bold ${r * 0.65}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#F0BC42";
+  ctx.fillText("R", 0, 0);
+}
+
+function drawNapoliLogo(ctx, r) {
+  // Blue circle with white N
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+  ctx.fillStyle = "#1E90FF";
+  ctx.fill();
+  ctx.font = `bold ${r * 0.8}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#fff";
+  ctx.fillText("N", 0, 0);
+}
+
+function drawLazioLogo(ctx, r) {
+  // Light blue with eagle-like shape (simplified as wings)
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+  ctx.fillStyle = "#87CEEB";
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.35);
+  ctx.lineTo(-r * 0.5, r * 0.15);
+  ctx.lineTo(0, 0);
+  ctx.lineTo(r * 0.5, r * 0.15);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawFiorentinaLogo(ctx, r) {
+  // Purple with fleur-de-lis (simplified)
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+  ctx.fillStyle = "#6A0DAD";
+  ctx.fill();
+  ctx.font = `bold ${r * 0.9}px serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#fff";
+  ctx.fillText("\u269C", 0, r * 0.05);
+}
+
+function drawAtalantaLogo(ctx, r) {
+  // Black-blue diagonal
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = "#1C1C1C";
+  ctx.fillRect(-r, -r, r * 2, r * 2);
+  ctx.fillStyle = "#0074D9";
+  ctx.beginPath();
+  ctx.moveTo(-r, -r);
+  ctx.lineTo(r, -r);
+  ctx.lineTo(-r, r);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+  ctx.font = `bold ${r * 0.65}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#fff";
+  ctx.fillText("A", 0, 0);
+}
+
+function drawTorinoLogo(ctx, r) {
+  // Dark red with bull silhouette (simplified as T with horns)
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+  ctx.fillStyle = "#8B0000";
+  ctx.fill();
+  ctx.font = `bold ${r * 0.7}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#fff";
+  ctx.fillText("T", 0, r * 0.05);
+}
+
+function drawBolognaLogo(ctx, r) {
+  // Red-blue diagonal split
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = "#A41E35";
+  ctx.fillRect(-r, -r, r * 2, r * 2);
+  ctx.fillStyle = "#1B3D6D";
+  ctx.beginPath();
+  ctx.moveTo(r, -r);
+  ctx.lineTo(r, r);
+  ctx.lineTo(-r, r);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+  ctx.font = `bold ${r * 0.6}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#fff";
+  ctx.fillText("B", 0, 0);
+}
 
 // ─── DOM ────────────────────────────────────────────────────────
 const canvas   = document.getElementById("game");
@@ -211,31 +378,47 @@ teams.forEach((t, i) => {
   selA.appendChild(new Option(t.name, i));
   selB.appendChild(new Option(t.name, i));
 });
-selB.value = 1; // default: second team
+selB.value = 1;
 
 // ─── Game State ─────────────────────────────────────────────────
 let gameRunning = false;
-let replayMode  = false;
 let animFrameId = null;
 let matchTimer  = 0;
 let lastTimestamp = 0;
 let scoreA = 0;
 let scoreB = 0;
-let marbleA = null;
-let marbleB = null;
+let goalAngle = 0;       // current rotation angle of the goal
+let marblesA = [];        // team A marbles
+let marblesB = [];        // team B marbles
+let allMarbles = [];
 let ball = null;
-let goalCooldown = 0;  // frames to wait after a goal before resuming
-
-// Goal geometry
-const goalY = (canvas.height - GOAL_HEIGHT) / 2;
-const goalLeft  = { x: 0,                    y: goalY, w: GOAL_WIDTH, h: GOAL_HEIGHT };
-const goalRight = { x: canvas.width - GOAL_WIDTH, y: goalY, w: GOAL_WIDTH, h: GOAL_HEIGHT };
+let goalCooldown = 0;
+let teamAData = null;
+let teamBData = null;
 
 // ─── Replay Data ────────────────────────────────────────────────
 let replayData = { teams: {}, frames: [], goals: [] };
 let replayIdx  = 0;
 let replayPlaying = false;
 let replayAnimId  = null;
+
+// ─── Angle Helpers ──────────────────────────────────────────────
+function normalizeAngle(a) {
+  a = a % (2 * Math.PI);
+  if (a < 0) a += 2 * Math.PI;
+  return a;
+}
+
+function angleDiff(a, b) {
+  let d = normalizeAngle(a) - normalizeAngle(b);
+  if (d > Math.PI) d -= 2 * Math.PI;
+  if (d < -Math.PI) d += 2 * Math.PI;
+  return d;
+}
+
+function isAngleInGoal(angle) {
+  return Math.abs(angleDiff(angle, goalAngle)) < GOAL_ARC / 2;
+}
 
 // ─── Ball ───────────────────────────────────────────────────────
 class Ball {
@@ -245,8 +428,8 @@ class Ball {
   }
 
   reset() {
-    this.x = canvas.width / 2;
-    this.y = canvas.height / 2;
+    this.x = FIELD_CX;
+    this.y = FIELD_CY;
     this.vx = 0;
     this.vy = 0;
   }
@@ -254,40 +437,17 @@ class Ball {
   update() {
     this.x += this.vx;
     this.y += this.vy;
-
-    // Friction
     this.vx *= 0.995;
     this.vy *= 0.995;
-
-    // Wall bounces (top/bottom)
-    if (this.y - this.radius < 0) {
-      this.y = this.radius;
-      this.vy *= -0.8;
-    }
-    if (this.y + this.radius > canvas.height) {
-      this.y = canvas.height - this.radius;
-      this.vy *= -0.8;
-    }
-
-    // Side walls (outside goal areas)
-    if (this.x - this.radius < 0) {
-      this.x = this.radius;
-      this.vx *= -0.8;
-    }
-    if (this.x + this.radius > canvas.width) {
-      this.x = canvas.width - this.radius;
-      this.vx *= -0.8;
-    }
+    constrainToField(this);
   }
 
   draw() {
-    // Ball shadow
     ctx.beginPath();
     ctx.arc(this.x + 2, this.y + 2, this.radius, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(0,0,0,0.3)";
     ctx.fill();
 
-    // White ball
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     ctx.fillStyle = "#fff";
@@ -296,12 +456,12 @@ class Ball {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Pentagon pattern (simplified)
+    // Pentagon pattern
     ctx.beginPath();
     for (let i = 0; i < 5; i++) {
-      const angle = (i * 2 * Math.PI) / 5 - Math.PI / 2;
-      const px = this.x + Math.cos(angle) * (this.radius * 0.5);
-      const py = this.y + Math.sin(angle) * (this.radius * 0.5);
+      const a = (i * 2 * Math.PI) / 5 - Math.PI / 2;
+      const px = this.x + Math.cos(a) * (this.radius * 0.5);
+      const py = this.y + Math.sin(a) * (this.radius * 0.5);
       if (i === 0) ctx.moveTo(px, py);
       else ctx.lineTo(px, py);
     }
@@ -313,57 +473,59 @@ class Ball {
 
 // ─── Marble ─────────────────────────────────────────────────────
 class Marble {
-  constructor(team, startX) {
+  constructor(team, startX, startY, id) {
     this.team = team;
+    this.id = id;
     this.radius = MARBLE_RADIUS;
+    this.startX = startX;
+    this.startY = startY;
     this.x = startX;
-    this.y = canvas.height / 2;
+    this.y = startY;
     this.vx = 0;
     this.vy = 0;
     this.targetX = startX;
-    this.targetY = canvas.height / 2;
+    this.targetY = startY;
     this.thinkTimer = 0;
   }
 
-  // Simple AI: move toward ball, with some randomness
-  think(ball, ownGoal, opponentGoal) {
+  respawn() {
+    this.x = this.startX;
+    this.y = this.startY;
+    this.vx = 0;
+    this.vy = 0;
+    this.thinkTimer = 0;
+  }
+
+  think() {
     this.thinkTimer--;
     if (this.thinkTimer > 0) return;
-    this.thinkTimer = Math.floor(10 + Math.random() * 20);
+    this.thinkTimer = Math.floor(8 + Math.random() * 18);
 
-    const toBallX = ball.x - this.x;
-    const toBallY = ball.y - this.y;
-    const distBall = Math.sqrt(toBallX * toBallX + toBallY * toBallY);
+    // Predict where the goal will be in ~0.5s
+    const prediction = 25 + Math.random() * 20;
+    const futureAngle = goalAngle + GOAL_SPEED * prediction;
 
-    // Bias toward pushing ball toward opponent goal
-    const goalCenterX = opponentGoal.x + opponentGoal.w / 2;
-    const goalCenterY = opponentGoal.y + opponentGoal.h / 2;
+    // Target a point just inside the perimeter at the goal's future position
+    const targetDist = FIELD_RADIUS - this.radius * 0.5;
+    this.targetX = FIELD_CX + Math.cos(futureAngle) * targetDist;
+    this.targetY = FIELD_CY + Math.sin(futureAngle) * targetDist;
 
-    if (distBall < 200) {
-      // Go toward ball but offset to push it goalward
-      const pushAngle = Math.atan2(goalCenterY - ball.y, goalCenterX - ball.x);
-      this.targetX = ball.x - Math.cos(pushAngle) * 40;
-      this.targetY = ball.y - Math.sin(pushAngle) * 40;
-    } else {
-      // Return toward defensive position when far from ball
-      const homeX = ownGoal.x < canvas.width / 2 ? canvas.width * 0.3 : canvas.width * 0.7;
-      this.targetX = homeX + (Math.random() - 0.5) * 80;
-      this.targetY = canvas.height / 2 + (Math.random() - 0.5) * 150;
-    }
+    // Add some noise scaled by inverse power (weaker teams = more noise)
+    const noise = (1.1 - this.team.power) * 60;
+    this.targetX += (Math.random() - 0.5) * noise;
+    this.targetY += (Math.random() - 0.5) * noise;
   }
 
   update() {
-    // Accelerate toward target
     const dx = this.targetX - this.x;
     const dy = this.targetY - this.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist > 1) {
-      const accel = 0.3 * this.team.power;
+      const accel = 0.35 * this.team.power;
       this.vx += (dx / dist) * accel;
       this.vy += (dy / dist) * accel;
     }
 
-    // Speed cap
     const maxSpeed = 4.5 * this.team.power;
     const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
     if (speed > maxSpeed) {
@@ -371,46 +533,115 @@ class Marble {
       this.vy = (this.vy / speed) * maxSpeed;
     }
 
-    // Friction
     this.vx *= 0.97;
     this.vy *= 0.97;
 
     this.x += this.vx;
     this.y += this.vy;
-
-    // Wall constraints
-    if (this.x - this.radius < 0) { this.x = this.radius; this.vx *= -0.5; }
-    if (this.x + this.radius > canvas.width) { this.x = canvas.width - this.radius; this.vx *= -0.5; }
-    if (this.y - this.radius < 0) { this.y = this.radius; this.vy *= -0.5; }
-    if (this.y + this.radius > canvas.height) { this.y = canvas.height - this.radius; this.vy *= -0.5; }
   }
 
   draw() {
+    const r = this.radius;
+
     // Shadow
     ctx.beginPath();
-    ctx.arc(this.x + 2, this.y + 2, this.radius, 0, Math.PI * 2);
+    ctx.arc(this.x + 2, this.y + 2, r, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(0,0,0,0.3)";
     ctx.fill();
 
-    // Main circle
+    // 3D gradient body
+    const grad = ctx.createRadialGradient(
+      this.x - r * 0.3, this.y - r * 0.3, r * 0.1,
+      this.x, this.y, r
+    );
+    grad.addColorStop(0, lightenColor(this.team.color, 50));
+    grad.addColorStop(1, this.team.color);
+
     ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = this.team.color;
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
     ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.4)";
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Team initial
-    ctx.fillStyle = this.team.accent;
-    ctx.font = "bold 16px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(this.team.name[0], this.x, this.y);
+    // Team logo
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    this.team.logo(ctx, r);
+    ctx.restore();
+
+    // Shine highlight
+    ctx.beginPath();
+    ctx.arc(this.x - r * 0.28, this.y - r * 0.28, r * 0.22, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    ctx.fill();
   }
 }
 
-// ─── Collision Detection ────────────────────────────────────────
+// ─── Color Helper ───────────────────────────────────────────────
+function lightenColor(hex, amount) {
+  const num = parseInt(hex.replace("#", ""), 16);
+  const r = Math.min(255, (num >> 16) + amount);
+  const g = Math.min(255, ((num >> 8) & 0xFF) + amount);
+  const b = Math.min(255, (num & 0xFF) + amount);
+  return `rgb(${r},${g},${b})`;
+}
+
+// ─── Circular Field Constraint ──────────────────────────────────
+function constrainToField(obj) {
+  const dx = obj.x - FIELD_CX;
+  const dy = obj.y - FIELD_CY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const maxDist = FIELD_RADIUS - obj.radius;
+
+  if (dist > maxDist) {
+    // Push back inside
+    const nx = dx / dist;
+    const ny = dy / dist;
+    obj.x = FIELD_CX + nx * maxDist;
+    obj.y = FIELD_CY + ny * maxDist;
+
+    // Reflect velocity off the circular wall
+    const dot = obj.vx * nx + obj.vy * ny;
+    obj.vx -= 2 * dot * nx;
+    obj.vy -= 2 * dot * ny;
+    obj.vx *= 0.7;
+    obj.vy *= 0.7;
+  }
+}
+
+// Returns the scoring marble if one exits through the goal, otherwise null
+function constrainMarbleOrScore(marble) {
+  const dx = marble.x - FIELD_CX;
+  const dy = marble.y - FIELD_CY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const maxDist = FIELD_RADIUS - marble.radius;
+
+  if (dist > maxDist) {
+    const angle = Math.atan2(dy, dx);
+
+    // Check if the marble is exiting through the goal opening
+    if (isAngleInGoal(angle)) {
+      return marble; // SCORED
+    }
+
+    // Otherwise bounce off the wall
+    const nx = dx / dist;
+    const ny = dy / dist;
+    marble.x = FIELD_CX + nx * maxDist;
+    marble.y = FIELD_CY + ny * maxDist;
+
+    const dot = marble.vx * nx + marble.vy * ny;
+    marble.vx -= 2 * dot * nx;
+    marble.vy -= 2 * dot * ny;
+    marble.vx *= 0.7;
+    marble.vy *= 0.7;
+  }
+  return null;
+}
+
+// ─── Circle Collision ───────────────────────────────────────────
 function circleCollision(a, b) {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
@@ -421,29 +652,24 @@ function circleCollision(a, b) {
 
 function resolveElasticCollision(a, b, massA, massB) {
   const col = circleCollision(a, b);
-  if (!col) return false;
+  if (!col) return;
 
   const { dx, dy, dist, minDist } = col;
-  if (dist === 0) return false; // prevent division by zero
+  if (dist === 0) return;
 
-  // Normal vector
   const nx = dx / dist;
   const ny = dy / dist;
 
-  // Separate overlapping objects
   const overlap = (minDist - dist) / 2;
   a.x -= nx * overlap;
   a.y -= ny * overlap;
   b.x += nx * overlap;
   b.y += ny * overlap;
 
-  // Relative velocity along collision normal
   const dvx = a.vx - b.vx;
   const dvy = a.vy - b.vy;
   const relNormal = dvx * nx + dvy * ny;
-
-  // Don't resolve if moving apart
-  if (relNormal < 0) return true;
+  if (relNormal < 0) return;
 
   const restitution = 0.85;
   const impulse = (2 * relNormal) / (massA + massB) * restitution;
@@ -452,101 +678,135 @@ function resolveElasticCollision(a, b, massA, massB) {
   a.vy -= impulse * massB * ny;
   b.vx += impulse * massA * nx;
   b.vy += impulse * massA * ny;
-
-  return true;
 }
 
-// ─── Goal Detection ─────────────────────────────────────────────
-function isInGoal(ball, goal) {
-  return (
-    ball.x - ball.radius < goal.x + goal.w &&
-    ball.x + ball.radius > goal.x &&
-    ball.y > goal.y &&
-    ball.y < goal.y + goal.h
-  );
-}
-
-// ─── Drawing Helpers ────────────────────────────────────────────
+// ─── Drawing ────────────────────────────────────────────────────
 function drawField() {
-  // Grass pattern
-  ctx.fillStyle = "#0b6623";
+  // Dark background
+  ctx.fillStyle = "#111";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Alternating grass stripes
-  for (let i = 0; i < 10; i++) {
-    if (i % 2 === 0) {
-      ctx.fillStyle = "rgba(255,255,255,0.02)";
-      ctx.fillRect(i * (canvas.width / 10), 0, canvas.width / 10, canvas.height);
-    }
-  }
+  // Field grass — radial gradient
+  const grassGrad = ctx.createRadialGradient(
+    FIELD_CX, FIELD_CY, 0,
+    FIELD_CX, FIELD_CY, FIELD_RADIUS
+  );
+  grassGrad.addColorStop(0, "#0d7a2b");
+  grassGrad.addColorStop(1, "#085a1e");
 
-  ctx.strokeStyle = FIELD_LINE_COLOR;
-  ctx.lineWidth = 2;
-
-  // Outer boundary
-  ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
-
-  // Center line
   ctx.beginPath();
-  ctx.moveTo(canvas.width / 2, 4);
-  ctx.lineTo(canvas.width / 2, canvas.height - 4);
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, 0, Math.PI * 2);
+  ctx.fillStyle = grassGrad;
+  ctx.fill();
+
+  // Field boundary ring (draw the wall part, skip the goal gap)
+  const gStart = normalizeAngle(goalAngle - GOAL_ARC / 2);
+  const gEnd   = normalizeAngle(goalAngle + GOAL_ARC / 2);
+
+  ctx.beginPath();
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gEnd, gStart);
+  ctx.strokeStyle = "rgba(255,255,255,0.4)";
+  ctx.lineWidth = 4;
   ctx.stroke();
 
   // Center circle
   ctx.beginPath();
-  ctx.arc(canvas.width / 2, canvas.height / 2, 60, 0, Math.PI * 2);
+  ctx.arc(FIELD_CX, FIELD_CY, 50, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255,255,255,0.15)";
+  ctx.lineWidth = 1.5;
   ctx.stroke();
 
   // Center dot
   ctx.beginPath();
-  ctx.arc(canvas.width / 2, canvas.height / 2, 4, 0, Math.PI * 2);
-  ctx.fillStyle = FIELD_LINE_COLOR;
+  ctx.arc(FIELD_CX, FIELD_CY, 4, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,255,255,0.25)";
   ctx.fill();
 
-  // Penalty areas
-  const penaltyW = 70;
-  const penaltyH = 220;
-  const penaltyY = (canvas.height - penaltyH) / 2;
-  ctx.strokeRect(4, penaltyY, penaltyW, penaltyH);
-  ctx.strokeRect(canvas.width - penaltyW - 4, penaltyY, penaltyW, penaltyH);
-
-  // Goal areas
-  drawGoal(goalLeft, marbleA ? marbleA.team.color : "#ccc");
-  drawGoal(goalRight, marbleB ? marbleB.team.color : "#ccc");
+  drawGoalGate();
 }
 
-function drawGoal(goal, teamColor) {
-  // Goal net (back)
-  ctx.fillStyle = "rgba(255,255,255,0.15)";
-  ctx.fillRect(goal.x, goal.y, goal.w, goal.h);
+function drawGoalGate() {
+  const gStart = goalAngle - GOAL_ARC / 2;
+  const gEnd   = goalAngle + GOAL_ARC / 2;
+
+  // Net area (arc extending outward)
+  ctx.beginPath();
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gStart, gEnd);
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + GOAL_NET_DEPTH, gEnd, gStart, true);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(255,215,0,0.12)";
+  ctx.fill();
+
+  // Net lines
+  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  ctx.lineWidth = 1;
+  const steps = 6;
+  for (let i = 0; i <= steps; i++) {
+    const a = gStart + (gEnd - gStart) * (i / steps);
+    const ix = FIELD_CX + Math.cos(a) * FIELD_RADIUS;
+    const iy = FIELD_CY + Math.sin(a) * FIELD_RADIUS;
+    const ox = FIELD_CX + Math.cos(a) * (FIELD_RADIUS + GOAL_NET_DEPTH);
+    const oy = FIELD_CY + Math.sin(a) * (FIELD_RADIUS + GOAL_NET_DEPTH);
+    ctx.beginPath();
+    ctx.moveTo(ix, iy);
+    ctx.lineTo(ox, oy);
+    ctx.stroke();
+  }
+  // Cross lines in net
+  for (let j = 1; j <= 2; j++) {
+    const r = FIELD_RADIUS + GOAL_NET_DEPTH * (j / 3);
+    ctx.beginPath();
+    ctx.arc(FIELD_CX, FIELD_CY, r, gStart, gEnd);
+    ctx.stroke();
+  }
+
+  // Goal opening highlight arc
+  ctx.beginPath();
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gStart, gEnd);
+  ctx.strokeStyle = "#FFD700";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  // Outer net arc
+  ctx.beginPath();
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + GOAL_NET_DEPTH, gStart, gEnd);
+  ctx.strokeStyle = "rgba(255,255,255,0.3)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
 
   // Goal posts
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(goal.x, goal.y - 3, goal.w, 6);             // top post
-  ctx.fillRect(goal.x, goal.y + goal.h - 3, goal.w, 6);    // bottom post
+  const p1x = FIELD_CX + Math.cos(gStart) * FIELD_RADIUS;
+  const p1y = FIELD_CY + Math.sin(gStart) * FIELD_RADIUS;
+  const p2x = FIELD_CX + Math.cos(gEnd)   * FIELD_RADIUS;
+  const p2y = FIELD_CY + Math.sin(gEnd)   * FIELD_RADIUS;
 
-  // Colored indicator
-  ctx.fillStyle = teamColor;
-  ctx.globalAlpha = 0.4;
-  ctx.fillRect(goal.x, goal.y, goal.w, goal.h);
-  ctx.globalAlpha = 1.0;
+  [{ x: p1x, y: p1y }, { x: p2x, y: p2y }].forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = "#FFD700";
+    ctx.fill();
+    ctx.strokeStyle = "#B8860B";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
 }
 
+// ─── Scoreboard & UI ────────────────────────────────────────────
 function updateScoreboard(timeLeft) {
-  if (!marbleA || !marbleB) { scoreboard.innerHTML = ""; return; }
+  if (!teamAData || !teamBData) { scoreboard.innerHTML = ""; return; }
   const mins = Math.floor(timeLeft / 60);
   const secs = Math.floor(timeLeft % 60);
   const timeStr = `${mins}:${secs.toString().padStart(2, "0")}`;
 
   scoreboard.innerHTML = `
     <span class="team-score">
-      <span class="dot" style="background:${marbleA.team.color}"></span>
-      ${marbleA.team.name} ${scoreA}
+      <span class="dot" style="background:${teamAData.color}"></span>
+      ${teamAData.name} ${scoreA}
     </span>
     <span class="timer">${timeStr}</span>
     <span class="team-score">
-      ${scoreB} ${marbleB.team.name}
-      <span class="dot" style="background:${marbleB.team.color}"></span>
+      ${scoreB} ${teamBData.name}
+      <span class="dot" style="background:${teamBData.color}"></span>
     </span>
   `;
 }
@@ -560,36 +820,34 @@ function logEvent(msg) {
   matchLogEl.textContent = msg;
 }
 
-// ─── Reset Positions After Goal ─────────────────────────────────
-function resetPositions() {
-  marbleA.x = canvas.width * 0.25;
-  marbleA.y = canvas.height / 2;
-  marbleA.vx = 0;
-  marbleA.vy = 0;
-  marbleA.thinkTimer = 0;
-
-  marbleB.x = canvas.width * 0.75;
-  marbleB.y = canvas.height / 2;
-  marbleB.vx = 0;
-  marbleB.vy = 0;
-  marbleB.thinkTimer = 0;
-
-  ball.reset();
+// ─── Marble Creation ────────────────────────────────────────────
+function createTeamMarbles(team, side) {
+  const marbles = [];
+  const baseAngle = side === "left" ? Math.PI : 0;
+  for (let i = 0; i < MARBLES_PER_TEAM; i++) {
+    const offset = (i - (MARBLES_PER_TEAM - 1) / 2) * 0.35;
+    const angle = baseAngle + offset;
+    const dist = FIELD_RADIUS * 0.45;
+    const x = FIELD_CX + Math.cos(angle) * dist;
+    const y = FIELD_CY + Math.sin(angle) * dist;
+    marbles.push(new Marble(team, x, y, `${team.name}-${i}`));
+  }
+  return marbles;
 }
 
-// ─── Record Frame for Replay ────────────────────────────────────
+// ─── Record Frame ───────────────────────────────────────────────
 function recordFrame() {
   replayData.frames.push({
-    mA: { x: marbleA.x, y: marbleA.y },
-    mB: { x: marbleB.x, y: marbleB.y },
+    marbles: allMarbles.map(m => ({ x: m.x, y: m.y, team: m.team.name })),
     ball: { x: ball.x, y: ball.y },
+    goalAngle,
     scoreA,
     scoreB,
     time: matchTimer
   });
 }
 
-// ─── Main Game Loop ─────────────────────────────────────────────
+// ─── Game Loop ──────────────────────────────────────────────────
 function gameLoop(timestamp) {
   if (!gameRunning) return;
 
@@ -601,12 +859,14 @@ function gameLoop(timestamp) {
     matchTimer += delta / 1000;
     const timeLeft = Math.max(0, MATCH_DURATION - matchTimer);
 
-    // Goal cooldown (brief pause after scoring)
+    // Rotate goal
+    goalAngle += GOAL_SPEED;
+
+    // Goal cooldown
     if (goalCooldown > 0) {
       goalCooldown--;
       drawField();
-      marbleA.draw();
-      marbleB.draw();
+      allMarbles.forEach(m => m.draw());
       ball.draw();
       updateScoreboard(timeLeft);
       recordFrame();
@@ -614,57 +874,60 @@ function gameLoop(timestamp) {
       return;
     }
 
-    // AI decisions
-    marbleA.think(ball, goalLeft, goalRight);
-    marbleB.think(ball, goalRight, goalLeft);
-
-    // Update positions
-    marbleA.update();
-    marbleB.update();
+    // AI + Update
+    allMarbles.forEach(m => {
+      m.think();
+      m.update();
+    });
     ball.update();
 
-    // Collisions: marble ↔ ball
-    resolveElasticCollision(marbleA, ball, 2.0, 1.0);
-    resolveElasticCollision(marbleB, ball, 2.0, 1.0);
+    // Marble ↔ ball collisions
+    allMarbles.forEach(m => resolveElasticCollision(m, ball, 2.0, 1.0));
 
-    // Collision: marble ↔ marble
-    resolveElasticCollision(marbleA, marbleB, 1.0, 1.0);
+    // Marble ↔ marble collisions
+    for (let i = 0; i < allMarbles.length; i++) {
+      for (let j = i + 1; j < allMarbles.length; j++) {
+        resolveElasticCollision(allMarbles[i], allMarbles[j], 1.0, 1.0);
+      }
+    }
 
-    // Goal detection
-    if (isInGoal(ball, goalLeft)) {
-      scoreB++;
+    // Check scoring: marble exits through goal gap
+    let scored = null;
+    for (const m of allMarbles) {
+      const result = constrainMarbleOrScore(m);
+      if (result && !scored) {
+        scored = result;
+      }
+    }
+
+    if (scored) {
+      const isTeamA = marblesA.includes(scored);
+      if (isTeamA) scoreA++;
+      else scoreB++;
+
       replayData.goals.push({
         frame: replayData.frames.length,
-        team: marbleB.team.name,
+        team: scored.team.name,
         time: matchTimer
       });
+
       showGoalFlash();
-      logEvent(`GOL! ${marbleB.team.name} segna! (${scoreA} - ${scoreB})`);
-      resetPositions();
-      goalCooldown = 60; // ~1 second pause
-    } else if (isInGoal(ball, goalRight)) {
-      scoreA++;
-      replayData.goals.push({
-        frame: replayData.frames.length,
-        team: marbleA.team.name,
-        time: matchTimer
-      });
-      showGoalFlash();
-      logEvent(`GOL! ${marbleA.team.name} segna! (${scoreA} - ${scoreB})`);
-      resetPositions();
-      goalCooldown = 60;
+      logEvent(`GOL! ${scored.team.name} segna! (${scoreA} - ${scoreB})`);
+
+      // Respawn the scoring marble + ball
+      scored.respawn();
+      ball.reset();
+      goalCooldown = 45;
     }
 
     // Draw
     drawField();
-    marbleA.draw();
-    marbleB.draw();
     ball.draw();
+    allMarbles.forEach(m => m.draw());
 
     updateScoreboard(timeLeft);
     recordFrame();
 
-    // End of match
     if (timeLeft <= 0) {
       endMatch();
       return;
@@ -681,24 +944,24 @@ function startMatch() {
     return;
   }
 
-  // Cleanup any previous state
   cancelAnimationFrame(animFrameId);
   cancelAnimationFrame(replayAnimId);
-  replayMode = false;
   replayPlaying = false;
   replayDiv.style.display = "none";
 
-  const teamAData = teams[parseInt(selA.value)];
-  const teamBData = teams[parseInt(selB.value)];
+  teamAData = teams[parseInt(selA.value)];
+  teamBData = teams[parseInt(selB.value)];
 
-  marbleA = new Marble(teamAData, canvas.width * 0.25);
-  marbleB = new Marble(teamBData, canvas.width * 0.75);
+  marblesA = createTeamMarbles(teamAData, "left");
+  marblesB = createTeamMarbles(teamBData, "right");
+  allMarbles = [...marblesA, ...marblesB];
   ball = new Ball();
 
   scoreA = 0;
   scoreB = 0;
   matchTimer = 0;
   lastTimestamp = 0;
+  goalAngle = 0;
   goalCooldown = 0;
 
   replayData = {
@@ -713,7 +976,7 @@ function startMatch() {
   selA.disabled = true;
   selB.disabled = true;
 
-  logEvent(`${teamAData.name} vs ${teamBData.name} — Calcio d'inizio!`);
+  logEvent(`${teamAData.name} vs ${teamBData.name} — Via!`);
   animFrameId = requestAnimationFrame(gameLoop);
 }
 
@@ -725,13 +988,12 @@ function endMatch() {
   selB.disabled = false;
 
   let result;
-  if (scoreA > scoreB) result = `${marbleA.team.name} vince!`;
-  else if (scoreB > scoreA) result = `${marbleB.team.name} vince!`;
+  if (scoreA > scoreB) result = `${teamAData.name} vince!`;
+  else if (scoreB > scoreA) result = `${teamBData.name} vince!`;
   else result = "Pareggio!";
 
-  logEvent(`Fine partita! ${marbleA.team.name} ${scoreA} - ${scoreB} ${marbleB.team.name}. ${result}`);
+  logEvent(`Fine partita! ${teamAData.name} ${scoreA} - ${scoreB} ${teamBData.name}. ${result}`);
 
-  // Show replay controls
   replayDiv.style.display = "flex";
   replaySlider.max = replayData.frames.length - 1;
   replaySlider.value = 0;
@@ -745,18 +1007,20 @@ function drawReplayFrame(idx) {
   if (idx < 0 || idx >= replayData.frames.length) return;
   const f = replayData.frames[idx];
 
-  // Temporarily set marble/ball positions for drawing
-  marbleA.x = f.mA.x;
-  marbleA.y = f.mA.y;
-  marbleB.x = f.mB.x;
-  marbleB.y = f.mB.y;
+  goalAngle = f.goalAngle;
+
+  f.marbles.forEach((md, i) => {
+    if (i < allMarbles.length) {
+      allMarbles[i].x = md.x;
+      allMarbles[i].y = md.y;
+    }
+  });
   ball.x = f.ball.x;
   ball.y = f.ball.y;
 
   drawField();
-  marbleA.draw();
-  marbleB.draw();
   ball.draw();
+  allMarbles.forEach(m => m.draw());
 
   scoreA = f.scoreA;
   scoreB = f.scoreB;
@@ -782,7 +1046,6 @@ function replayLoop() {
 btnReplayPlay.addEventListener("click", () => {
   if (replayData.frames.length === 0) return;
   replayPlaying = true;
-  replayMode = true;
   if (replayIdx >= replayData.frames.length) replayIdx = 0;
   replayLoop();
 });

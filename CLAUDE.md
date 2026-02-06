@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**Football Marble Race** is a browser-based game where AI-controlled marbles play football (soccer) on an HTML5 Canvas field. Two teams are selected, their marbles autonomously chase a ball, and goals are scored when the ball enters either net. Matches last 60 seconds, with full replay and JSON export support.
+**Football Marble Race** is a browser-based game where AI-controlled marbles race inside a **circular arena** to reach a **rotating goal**. Two teams of 5 marbles each compete — when any marble exits through the spinning goal gap, that team scores a point. A loose ball bounces around adding physics chaos. Matches last 60 seconds, with full replay and JSON export support.
 
 ## Repository Status
 
@@ -20,7 +20,7 @@ marblerace/
 ## Tech Stack
 
 - **Language**: Vanilla JavaScript (ES6+), no frameworks or build tools
-- **Rendering**: HTML5 Canvas 2D (`<canvas>` element, 900×500)
+- **Rendering**: HTML5 Canvas 2D (`<canvas>` element, 700×700)
 - **Styling**: Inline `<style>` block
 - **Dependencies**: None — zero external libraries, runs in any modern browser
 
@@ -38,33 +38,47 @@ open index.html
 The game is a self-contained single HTML file with three logical layers:
 
 ### Game Objects (Classes)
-- **`Ball`** — the football. Has position, velocity, friction, and wall-bounce physics.
-- **`Marble`** — a team marble with simple AI. Chases the ball, tries to push it toward the opponent's goal, and retreats defensively when far from the ball.
+- **`Ball`** — the football. Bounces inside the circular field, constrained by `constrainToField()`.
+- **`Marble`** — a team marble (5 per team) with simple AI. Predicts where the rotating goal will be and races toward it. Each marble displays a canvas-drawn team logo.
 
 ### Physics & Collision
 - **`circleCollision(a, b)`** — detects overlap between two circles.
-- **`resolveElasticCollision(a, b, massA, massB)`** — separates overlapping circles and applies impulse-based elastic response with restitution. Used for marble↔ball and marble↔marble collisions.
-- **`isInGoal(ball, goal)`** — AABB check: returns true when the ball overlaps a goal rectangle.
+- **`resolveElasticCollision(a, b, massA, massB)`** — impulse-based elastic response with restitution. Handles marble↔ball and marble↔marble.
+- **`constrainToField(obj)`** — keeps the ball inside the circular arena by reflecting velocity off the curved wall.
+- **`constrainMarbleOrScore(marble)`** — same wall constraint for marbles, but when a marble hits the perimeter at the **goal opening**, it passes through and scores instead of bouncing.
+
+### Circular Field & Rotating Goal
+- The arena is a circle centered at `(FIELD_CX, FIELD_CY)` with radius `FIELD_RADIUS`.
+- A single goal (golden arc opening, ~25°) rotates continuously at `GOAL_SPEED` rad/frame (one full revolution in ~10 seconds).
+- **`isAngleInGoal(angle)`** — checks whether a perimeter angle falls within the goal arc, using `angleDiff()` to handle wrap-around.
+- The goal is drawn with posts, a net backdrop, and a golden highlight.
+
+### Team Logos
+- Each team has a `logo` function (e.g., `drawMilanLogo(ctx, r)`) that draws a simplified crest using Canvas 2D primitives (stripes, shapes, initials).
+- Logos are rendered centered on each marble via `ctx.save/translate/restore`.
 
 ### Game Flow
-1. **Team selection** — two `<select>` dropdowns populated from the `teams[]` array (10 Serie A clubs with name, color, accent, and power rating).
-2. **`startMatch()`** — initializes marbles, ball, score, timer, replay buffer; starts the `requestAnimationFrame` loop.
-3. **`gameLoop(timestamp)`** — runs at ~60 FPS. Each tick: AI think → update positions → resolve collisions → check goals → draw → record replay frame.
-4. **`endMatch()`** — stops the loop, shows result, enables replay controls and download button.
+1. **Team selection** — two `<select>` dropdowns populated from the `teams[]` array (10 Serie A clubs with name, color, accent, power, and logo draw function).
+2. **`startMatch()`** — creates 5 marbles per team + 1 ball, resets state, starts the `requestAnimationFrame` loop.
+3. **`gameLoop(timestamp)`** — ~60 FPS. Each tick: rotate goal → AI think → update positions → resolve collisions → check scoring → draw → record replay frame.
+4. **Scoring** — when a marble exits through the goal gap, that team gets +1. The scoring marble respawns at its start position, the ball respawns at center, and a brief cooldown pauses action.
+5. **`endMatch()`** — stops the loop, shows result, enables replay controls.
 
 ### Replay System
-- Every frame is pushed to `replayData.frames[]` with marble positions, ball position, score, and elapsed time.
+- Every frame records all marble positions, ball position, goal angle, scores, and elapsed time.
 - After the match, a slider + play/pause buttons let the user scrub through frames.
-- **JSON export**: `replayData` (frames + goal events + team info) is serialized and downloaded as a `.json` file.
+- **JSON export**: full replay data downloaded as `.json`.
 
 ### Key Constants (top of `<script>`)
 | Constant | Value | Purpose |
 |---|---|---|
 | `MATCH_DURATION` | 60 | Match length in seconds |
-| `BALL_RADIUS` | 14 | Football radius in px |
-| `MARBLE_RADIUS` | 20 | Marble radius in px |
-| `GOAL_WIDTH` | 10 | Goal depth in px |
-| `GOAL_HEIGHT` | 140 | Goal opening in px |
+| `BALL_RADIUS` | 12 | Football radius in px |
+| `MARBLE_RADIUS` | 18 | Marble radius in px |
+| `MARBLES_PER_TEAM` | 5 | Marbles per team |
+| `FIELD_RADIUS` | 300 | Circular arena radius in px |
+| `GOAL_ARC` | 0.44 | Goal opening width in radians (~25°) |
+| `GOAL_SPEED` | 2π/(10×60) | Goal rotation speed (1 rev / 10 sec) |
 | `FPS` | 60 | Target frames per second |
 
 ## Development Guidelines
