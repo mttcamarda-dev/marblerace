@@ -2,13 +2,29 @@
 
 ## Project Overview
 
-**Marble Race** is a new project. The repository has been initialized but development has not yet begun. This file serves as the foundational guide for AI assistants working on this codebase.
+**Marble Race** is a greenfield project. The repository has been initialized with foundational guidelines but no application code has been written yet. This file serves as the authoritative guide for AI assistants working on this codebase.
 
 ## Repository Status
 
-- **State**: Empty repository, freshly initialized
-- **Remote**: `origin` configured at `mttcamarda-dev/marblerace`
-- **Primary branch**: To be established with the first commit
+- **State**: Pre-development — no source code, build system, or CI/CD pipeline exists yet
+- **Remote**: `origin` at `mttcamarda-dev/marblerace`
+- **Branches**: Development happens on `claude/` prefixed feature branches
+- **Structure**: Currently only this file (`CLAUDE.md`) exists at the repository root
+
+## Quick Reference
+
+No build, test, or lint commands are configured yet. Update this section as tooling is added:
+
+```
+# Build
+(not yet configured)
+
+# Test
+(not yet configured)
+
+# Lint
+(not yet configured)
+```
 
 ## Development Guidelines
 
@@ -18,6 +34,7 @@
 - Write clear, descriptive commit messages focused on "why" not "what"
 - Keep commits atomic — one logical change per commit
 - Do not force-push to shared branches
+- Push with `git push -u origin <branch-name>`
 
 ### Code Quality Expectations
 
@@ -39,13 +56,36 @@
 - Tests should be deterministic and independent of each other
 - Prefer testing behavior over implementation details
 
+## Architecture & Tech Stack
+
+Not yet established. When the tech stack is chosen, document here:
+
+- Language(s) and runtime versions
+- Framework(s) and key libraries
+- Database / storage
+- Project directory layout (e.g., `src/`, `tests/`, `public/`)
+
+## Environment Setup
+
+No setup steps required yet. Update this section when dependencies and tooling are introduced:
+
+1. Prerequisites (runtime, package manager, etc.)
+2. Install dependencies
+3. Environment variables (reference `.env.example` if applicable)
+4. Local development server
+
+## CI/CD
+
+No CI/CD pipeline is configured. When added, document:
+
+- Pipeline tool (GitHub Actions, etc.)
+- Triggers (on push, on PR, etc.)
+- Steps (lint, test, build, deploy)
+
+## Conventions
+
+Document naming conventions, patterns, and team decisions here as they emerge during development.
+
 ## Updating This File
 
-As the project develops, update this file to reflect:
-
-- Tech stack and dependencies
-- Build, test, and lint commands
-- Architecture decisions and patterns in use
-- Environment setup instructions
-- CI/CD pipeline details
-- Naming conventions adopted by the team
+Keep this file current as the project evolves. Every significant addition — new tooling, architectural decisions, naming conventions — should be reflected here so that any AI assistant or new contributor can orient quickly.
