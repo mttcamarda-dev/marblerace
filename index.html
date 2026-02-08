@@ -91,7 +91,7 @@
 
     canvas {
       border: 3px solid #333;
-      border-radius: 50%;
+      border-radius: 12px;
       background: #111;
       display: block;
       max-width: 100%;
@@ -153,7 +153,7 @@
 
 <div class="scoreboard" id="scoreboard"></div>
 
-<canvas id="game" width="520" height="520"></canvas>
+<canvas id="game" width="520" height="560"></canvas>
 
 <div class="replay-controls" id="replayControls" style="display:none;">
   <button id="replayPlay">Riproduci</button>
@@ -168,434 +168,45 @@
 <script>
 // ─── Configuration ──────────────────────────────────────────────
 const MATCH_DURATION = 60;
-const BALL_RADIUS = 12;
-const MARBLE_RADIUS = 24;
-const MARBLES_PER_TEAM = 1;
+const MARBLE_RADIUS = 26;
+const MAX_GOALS = 3;          // max goals per team
 const FPS = 60;
 const FRAME_MS = 1000 / FPS;
 
-// Circular field
+// Circular field (offset Y for title text)
+const TITLE_HEIGHT = 36;
 const FIELD_CX = 260;
-const FIELD_CY = 260;
+const FIELD_CY = 260 + TITLE_HEIGHT;
 const FIELD_RADIUS = 220;
 
-// Rotating goal: angular width in radians (~25°)
-const GOAL_ARC = 0.44;
-// One full rotation in ~10 seconds at 60 FPS
+// Rotating goal — narrower arc for fewer goals
+const GOAL_ARC = 0.32;
 const GOAL_SPEED = (2 * Math.PI) / (10 * FPS);
 const GOAL_NET_DEPTH = 22;
 
-// ─── Teams ──────────────────────────────────────────────────────
+// ─── Teams with official logo URLs (football-data.org crests) ───
 const teams = [
-  { name: "Milan",      color: "#AC1E2D", accent: "#000",    power: 1.00, logo: drawMilanLogo },
-  { name: "Inter",      color: "#0055A4", accent: "#000",    power: 1.05, logo: drawInterLogo },
-  { name: "Juventus",   color: "#000000", accent: "#fff",    power: 1.03, logo: drawJuventusLogo },
-  { name: "Roma",       color: "#8E1F2F", accent: "#F0BC42", power: 0.98, logo: drawRomaLogo },
-  { name: "Napoli",     color: "#1E90FF", accent: "#fff",    power: 1.04, logo: drawNapoliLogo },
-  { name: "Lazio",      color: "#87CEEB", accent: "#fff",    power: 0.97, logo: drawLazioLogo },
-  { name: "Fiorentina", color: "#6A0DAD", accent: "#fff",    power: 0.96, logo: drawFiorentinaLogo },
-  { name: "Atalanta",   color: "#1C1C1C", accent: "#0074D9", power: 1.01, logo: drawAtalantaLogo },
-  { name: "Torino",     color: "#8B0000", accent: "#fff",    power: 0.95, logo: drawTorinoLogo },
-  { name: "Bologna",    color: "#A41E35", accent: "#1B3D6D", power: 0.94, logo: drawBolognaLogo },
+  { name: "Milan",      color: "#AC1E2D", accent: "#000",    power: 1.00, logoUrl: "https://crests.football-data.org/98.png" },
+  { name: "Inter",      color: "#0055A4", accent: "#000",    power: 1.05, logoUrl: "https://crests.football-data.org/108.png" },
+  { name: "Juventus",   color: "#000000", accent: "#fff",    power: 1.03, logoUrl: "https://crests.football-data.org/109.png" },
+  { name: "Roma",       color: "#8E1F2F", accent: "#F0BC42", power: 0.98, logoUrl: "https://crests.football-data.org/100.png" },
+  { name: "Napoli",     color: "#1E90FF", accent: "#fff",    power: 1.04, logoUrl: "https://crests.football-data.org/113.png" },
+  { name: "Lazio",      color: "#87CEEB", accent: "#1C2C5B", power: 0.97, logoUrl: "https://crests.football-data.org/110.png" },
+  { name: "Fiorentina", color: "#6A0DAD", accent: "#fff",    power: 0.96, logoUrl: "https://crests.football-data.org/99.png" },
+  { name: "Atalanta",   color: "#1C1C1C", accent: "#0074D9", power: 1.01, logoUrl: "https://crests.football-data.org/102.png" },
+  { name: "Torino",     color: "#8B0000", accent: "#fff",    power: 0.95, logoUrl: "https://crests.football-data.org/586.png" },
+  { name: "Bologna",    color: "#A41E35", accent: "#1B3D6D", power: 0.94, logoUrl: "https://crests.football-data.org/103.png" },
 ];
 
-// ─── Team Logo Drawing Functions ────────────────────────────────
-// Each draws a simplified but recognizable crest at (0,0) inside radius r
-
-function drawMilanLogo(ctx, r) {
-  // Shield with red cross + red-black stripes
-  const s = r * 0.65;
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(0, -s);
-  ctx.lineTo(s, -s * 0.3);
-  ctx.lineTo(s, s * 0.5);
-  ctx.quadraticCurveTo(0, s * 1.1, 0, s * 1.1);
-  ctx.quadraticCurveTo(0, s * 1.1, -s, s * 0.5);
-  ctx.lineTo(-s, -s * 0.3);
-  ctx.closePath();
-  ctx.clip();
-  // Red-black stripes
-  const sw = s * 0.5;
-  for (let i = -2; i <= 2; i++) {
-    ctx.fillStyle = i % 2 === 0 ? "#AC1E2D" : "#000";
-    ctx.fillRect(i * sw - sw / 2, -r, sw, r * 2.5);
-  }
-  // White cross on top half
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(-s * 0.08, -s * 0.8, s * 0.16, s * 0.9);
-  ctx.fillRect(-s * 0.45, -s * 0.5, s * 0.9, s * 0.16);
-  ctx.restore();
-}
-
-function drawInterLogo(ctx, r) {
-  // Blue-black circle with gold "IM"
-  const s = r * 0.7;
-  ctx.beginPath();
-  ctx.arc(0, 0, s, 0, Math.PI * 2);
-  ctx.fillStyle = "#0055A4";
-  ctx.fill();
-  ctx.strokeStyle = "#C5A44E";
-  ctx.lineWidth = s * 0.12;
-  ctx.stroke();
-  // Blue-black stripes clipped
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(0, 0, s * 0.85, 0, Math.PI * 2);
-  ctx.clip();
-  const sw = s * 0.38;
-  for (let i = -2; i <= 2; i++) {
-    ctx.fillStyle = i % 2 === 0 ? "#0055A4" : "#000";
-    ctx.fillRect(i * sw - sw / 2, -r, sw, r * 2.5);
-  }
-  ctx.restore();
-  // Gold "IM" letters
-  ctx.font = `bold ${s * 0.7}px serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#C5A44E";
-  ctx.fillText("IM", 0, s * 0.05);
-}
-
-function drawJuventusLogo(ctx, r) {
-  // Black-white shield with stylized J
-  const s = r * 0.65;
-  // Shield shape
-  ctx.beginPath();
-  ctx.moveTo(0, -s);
-  ctx.lineTo(s * 0.8, -s * 0.3);
-  ctx.lineTo(s * 0.8, s * 0.4);
-  ctx.quadraticCurveTo(0, s * 1.15, 0, s * 1.15);
-  ctx.quadraticCurveTo(0, s * 1.15, -s * 0.8, s * 0.4);
-  ctx.lineTo(-s * 0.8, -s * 0.3);
-  ctx.closePath();
-  ctx.fillStyle = "#000";
-  ctx.fill();
-  // White left half
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(-r, -r, r, r * 2);
-  ctx.clip();
-  ctx.beginPath();
-  ctx.moveTo(0, -s);
-  ctx.lineTo(s * 0.8, -s * 0.3);
-  ctx.lineTo(s * 0.8, s * 0.4);
-  ctx.quadraticCurveTo(0, s * 1.15, 0, s * 1.15);
-  ctx.quadraticCurveTo(0, s * 1.15, -s * 0.8, s * 0.4);
-  ctx.lineTo(-s * 0.8, -s * 0.3);
-  ctx.closePath();
-  ctx.fillStyle = "#fff";
-  ctx.fill();
-  ctx.restore();
-  // J letter
-  ctx.font = `bold ${s * 1.1}px serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#000";
-  ctx.fillText("J", s * 0.05, s * 0.15);
-}
-
-function drawRomaLogo(ctx, r) {
-  // Maroon-gold circle with wolf silhouette
-  const s = r * 0.7;
-  ctx.beginPath();
-  ctx.arc(0, 0, s, 0, Math.PI * 2);
-  ctx.fillStyle = "#8E1F2F";
-  ctx.fill();
-  ctx.strokeStyle = "#F0BC42";
-  ctx.lineWidth = s * 0.12;
-  ctx.stroke();
-  // Simplified wolf head
-  ctx.fillStyle = "#F0BC42";
-  ctx.beginPath();
-  // Ears
-  ctx.moveTo(-s * 0.35, -s * 0.15);
-  ctx.lineTo(-s * 0.25, -s * 0.55);
-  ctx.lineTo(-s * 0.05, -s * 0.2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(s * 0.35, -s * 0.15);
-  ctx.lineTo(s * 0.25, -s * 0.55);
-  ctx.lineTo(s * 0.05, -s * 0.2);
-  ctx.fill();
-  // Head
-  ctx.beginPath();
-  ctx.ellipse(0, 0, s * 0.3, s * 0.25, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Snout
-  ctx.beginPath();
-  ctx.ellipse(0, s * 0.25, s * 0.15, s * 0.12, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Eyes
-  ctx.fillStyle = "#8E1F2F";
-  ctx.beginPath();
-  ctx.arc(-s * 0.12, -s * 0.05, s * 0.06, 0, Math.PI * 2);
-  ctx.arc(s * 0.12, -s * 0.05, s * 0.06, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function drawNapoliLogo(ctx, r) {
-  // Blue circle with white ornate N
-  const s = r * 0.7;
-  ctx.beginPath();
-  ctx.arc(0, 0, s, 0, Math.PI * 2);
-  ctx.fillStyle = "#1E90FF";
-  ctx.fill();
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = s * 0.1;
-  ctx.stroke();
-  // Stylized N
-  ctx.lineWidth = s * 0.15;
-  ctx.strokeStyle = "#fff";
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(-s * 0.3, s * 0.35);
-  ctx.lineTo(-s * 0.3, -s * 0.35);
-  ctx.lineTo(s * 0.3, s * 0.35);
-  ctx.lineTo(s * 0.3, -s * 0.35);
-  ctx.stroke();
-  ctx.lineCap = "butt";
-}
-
-function drawLazioLogo(ctx, r) {
-  // Light blue with white eagle
-  const s = r * 0.7;
-  ctx.beginPath();
-  ctx.arc(0, 0, s, 0, Math.PI * 2);
-  ctx.fillStyle = "#87CEEB";
-  ctx.fill();
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = s * 0.08;
-  ctx.stroke();
-  // Eagle body
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.moveTo(0, -s * 0.15);
-  ctx.lineTo(-s * 0.15, s * 0.3);
-  ctx.lineTo(s * 0.15, s * 0.3);
-  ctx.closePath();
-  ctx.fill();
-  // Eagle head
-  ctx.beginPath();
-  ctx.arc(0, -s * 0.25, s * 0.12, 0, Math.PI * 2);
-  ctx.fill();
-  // Beak
-  ctx.beginPath();
-  ctx.moveTo(s * 0.1, -s * 0.25);
-  ctx.lineTo(s * 0.22, -s * 0.2);
-  ctx.lineTo(s * 0.1, -s * 0.18);
-  ctx.closePath();
-  ctx.fillStyle = "#F0BC42";
-  ctx.fill();
-  // Wings spread
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.moveTo(-s * 0.1, -s * 0.05);
-  ctx.quadraticCurveTo(-s * 0.55, -s * 0.5, -s * 0.6, -s * 0.15);
-  ctx.quadraticCurveTo(-s * 0.45, s * 0.05, -s * 0.15, s * 0.15);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(s * 0.1, -s * 0.05);
-  ctx.quadraticCurveTo(s * 0.55, -s * 0.5, s * 0.6, -s * 0.15);
-  ctx.quadraticCurveTo(s * 0.45, s * 0.05, s * 0.15, s * 0.15);
-  ctx.closePath();
-  ctx.fill();
-}
-
-function drawFiorentinaLogo(ctx, r) {
-  // Purple background with red giglio (fleur-de-lis of Florence)
-  const s = r * 0.7;
-  ctx.beginPath();
-  ctx.arc(0, 0, s, 0, Math.PI * 2);
-  ctx.fillStyle = "#6A0DAD";
-  ctx.fill();
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = s * 0.08;
-  ctx.stroke();
-  // Giglio (fleur-de-lis)
-  const g = s * 0.75;
-  ctx.fillStyle = "#D2122E";
-  // Center petal
-  ctx.beginPath();
-  ctx.moveTo(0, -g * 0.7);
-  ctx.bezierCurveTo(-g * 0.2, -g * 0.5, -g * 0.15, -g * 0.1, -g * 0.05, g * 0.05);
-  ctx.lineTo(g * 0.05, g * 0.05);
-  ctx.bezierCurveTo(g * 0.15, -g * 0.1, g * 0.2, -g * 0.5, 0, -g * 0.7);
-  ctx.fill();
-  // Left petal
-  ctx.beginPath();
-  ctx.moveTo(-g * 0.08, -g * 0.15);
-  ctx.bezierCurveTo(-g * 0.5, -g * 0.55, -g * 0.65, -g * 0.15, -g * 0.45, g * 0.1);
-  ctx.bezierCurveTo(-g * 0.35, g * 0.15, -g * 0.15, g * 0.05, -g * 0.08, -g * 0.05);
-  ctx.closePath();
-  ctx.fill();
-  // Right petal
-  ctx.beginPath();
-  ctx.moveTo(g * 0.08, -g * 0.15);
-  ctx.bezierCurveTo(g * 0.5, -g * 0.55, g * 0.65, -g * 0.15, g * 0.45, g * 0.1);
-  ctx.bezierCurveTo(g * 0.35, g * 0.15, g * 0.15, g * 0.05, g * 0.08, -g * 0.05);
-  ctx.closePath();
-  ctx.fill();
-  // Stem
-  ctx.fillRect(-g * 0.06, g * 0.05, g * 0.12, g * 0.35);
-  // Base bar
-  ctx.beginPath();
-  ctx.moveTo(-g * 0.22, g * 0.35);
-  ctx.lineTo(g * 0.22, g * 0.35);
-  ctx.lineTo(g * 0.18, g * 0.48);
-  ctx.lineTo(-g * 0.18, g * 0.48);
-  ctx.closePath();
-  ctx.fill();
-  // Stamens (3 dots on top)
-  ctx.beginPath();
-  ctx.arc(0, -g * 0.72, g * 0.06, 0, Math.PI * 2);
-  ctx.arc(-g * 0.25, -g * 0.35, g * 0.05, 0, Math.PI * 2);
-  ctx.arc(g * 0.25, -g * 0.35, g * 0.05, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function drawAtalantaLogo(ctx, r) {
-  // Black-blue vertical halves with white goddess silhouette
-  const s = r * 0.7;
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(0, 0, s, 0, Math.PI * 2);
-  ctx.clip();
-  // Left half: black
-  ctx.fillStyle = "#1C1C1C";
-  ctx.fillRect(-r, -r, r, r * 2);
-  // Right half: blue
-  ctx.fillStyle = "#0074D9";
-  ctx.fillRect(0, -r, r, r * 2);
-  ctx.restore();
-  // Border
-  ctx.beginPath();
-  ctx.arc(0, 0, s, 0, Math.PI * 2);
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = s * 0.08;
-  ctx.stroke();
-  // Goddess head silhouette
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.arc(0, -s * 0.15, s * 0.2, 0, Math.PI * 2);
-  ctx.fill();
-  // Hair flowing left
-  ctx.beginPath();
-  ctx.moveTo(-s * 0.15, -s * 0.25);
-  ctx.quadraticCurveTo(-s * 0.45, -s * 0.15, -s * 0.35, s * 0.15);
-  ctx.quadraticCurveTo(-s * 0.2, s * 0.05, -s * 0.1, -s * 0.05);
-  ctx.closePath();
-  ctx.fill();
-  // Neck + shoulders
-  ctx.beginPath();
-  ctx.moveTo(-s * 0.1, s * 0.02);
-  ctx.lineTo(-s * 0.3, s * 0.35);
-  ctx.lineTo(s * 0.3, s * 0.35);
-  ctx.lineTo(s * 0.1, s * 0.02);
-  ctx.closePath();
-  ctx.fill();
-}
-
-function drawTorinoLogo(ctx, r) {
-  // Maroon circle with golden bull (toro)
-  const s = r * 0.7;
-  ctx.beginPath();
-  ctx.arc(0, 0, s, 0, Math.PI * 2);
-  ctx.fillStyle = "#8B0000";
-  ctx.fill();
-  ctx.strokeStyle = "#C5A44E";
-  ctx.lineWidth = s * 0.1;
-  ctx.stroke();
-  // Bull silhouette
-  ctx.fillStyle = "#fff";
-  // Body
-  ctx.beginPath();
-  ctx.ellipse(0, s * 0.15, s * 0.4, s * 0.22, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Head
-  ctx.beginPath();
-  ctx.ellipse(0, -s * 0.15, s * 0.2, s * 0.17, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Left horn (curved outward)
-  ctx.beginPath();
-  ctx.moveTo(-s * 0.15, -s * 0.28);
-  ctx.quadraticCurveTo(-s * 0.45, -s * 0.6, -s * 0.3, -s * 0.65);
-  ctx.quadraticCurveTo(-s * 0.2, -s * 0.55, -s * 0.12, -s * 0.35);
-  ctx.closePath();
-  ctx.fill();
-  // Right horn
-  ctx.beginPath();
-  ctx.moveTo(s * 0.15, -s * 0.28);
-  ctx.quadraticCurveTo(s * 0.45, -s * 0.6, s * 0.3, -s * 0.65);
-  ctx.quadraticCurveTo(s * 0.2, -s * 0.55, s * 0.12, -s * 0.35);
-  ctx.closePath();
-  ctx.fill();
-  // Legs (4 stubs)
-  ctx.fillRect(-s * 0.3, s * 0.3, s * 0.1, s * 0.2);
-  ctx.fillRect(-s * 0.1, s * 0.3, s * 0.1, s * 0.2);
-  ctx.fillRect(s * 0.05, s * 0.3, s * 0.1, s * 0.2);
-  ctx.fillRect(s * 0.22, s * 0.3, s * 0.1, s * 0.2);
-  // Tail
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = s * 0.05;
-  ctx.beginPath();
-  ctx.moveTo(s * 0.38, s * 0.05);
-  ctx.quadraticCurveTo(s * 0.55, -s * 0.15, s * 0.45, -s * 0.3);
-  ctx.stroke();
-  // Eyes (dark)
-  ctx.fillStyle = "#8B0000";
-  ctx.beginPath();
-  ctx.arc(-s * 0.08, -s * 0.18, s * 0.04, 0, Math.PI * 2);
-  ctx.arc(s * 0.08, -s * 0.18, s * 0.04, 0, Math.PI * 2);
-  ctx.fill();
-  // Nostrils
-  ctx.beginPath();
-  ctx.arc(-s * 0.06, -s * 0.06, s * 0.025, 0, Math.PI * 2);
-  ctx.arc(s * 0.06, -s * 0.06, s * 0.025, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function drawBolognaLogo(ctx, r) {
-  // Red-blue halved shield with white BFC
-  const s = r * 0.65;
-  // Shield
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(0, -s);
-  ctx.lineTo(s, -s * 0.3);
-  ctx.lineTo(s, s * 0.5);
-  ctx.quadraticCurveTo(0, s * 1.1, 0, s * 1.1);
-  ctx.quadraticCurveTo(0, s * 1.1, -s, s * 0.5);
-  ctx.lineTo(-s, -s * 0.3);
-  ctx.closePath();
-  ctx.clip();
-  // Left half red
-  ctx.fillStyle = "#A41E35";
-  ctx.fillRect(-r, -r, r, r * 2.5);
-  // Right half blue
-  ctx.fillStyle = "#1B3D6D";
-  ctx.fillRect(0, -r, r, r * 2.5);
-  ctx.restore();
-  // Shield border
-  ctx.beginPath();
-  ctx.moveTo(0, -s);
-  ctx.lineTo(s, -s * 0.3);
-  ctx.lineTo(s, s * 0.5);
-  ctx.quadraticCurveTo(0, s * 1.1, 0, s * 1.1);
-  ctx.quadraticCurveTo(0, s * 1.1, -s, s * 0.5);
-  ctx.lineTo(-s, -s * 0.3);
-  ctx.closePath();
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = s * 0.08;
-  ctx.stroke();
-  // BFC text
-  ctx.font = `bold ${s * 0.45}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#fff";
-  ctx.fillText("BFC", 0, s * 0.1);
-}
+// Pre-load all logo images
+teams.forEach(t => {
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.src = t.logoUrl;
+  t.logoImg = img;
+  t.logoLoaded = false;
+  img.onload = () => { t.logoLoaded = true; };
+});
 
 // ─── DOM ────────────────────────────────────────────────────────
 const canvas   = document.getElementById("game");
@@ -627,11 +238,9 @@ let matchTimer  = 0;
 let lastTimestamp = 0;
 let scoreA = 0;
 let scoreB = 0;
-let goalAngle = 0;       // current rotation angle of the goal
-let marblesA = [];        // team A marbles
-let marblesB = [];        // team B marbles
-let allMarbles = [];
-let ball = null;
+let goalAngle = 0;
+let marbleA = null;
+let marbleB = null;
 let goalCooldown = 0;
 let teamAData = null;
 let teamBData = null;
@@ -660,69 +269,20 @@ function isAngleInGoal(angle) {
   return Math.abs(angleDiff(angle, goalAngle)) < GOAL_ARC / 2;
 }
 
-// ─── Ball ───────────────────────────────────────────────────────
-class Ball {
-  constructor() {
-    this.radius = BALL_RADIUS;
-    this.reset();
-  }
-
-  reset() {
-    this.x = FIELD_CX;
-    this.y = FIELD_CY;
-    this.vx = 0;
-    this.vy = 0;
-  }
-
-  update() {
-    this.x += this.vx;
-    this.y += this.vy;
-    this.vx *= 0.995;
-    this.vy *= 0.995;
-    constrainToField(this);
-  }
-
-  draw() {
-    ctx.beginPath();
-    ctx.arc(this.x + 2, this.y + 2, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0,0,0,0.3)";
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = "#fff";
-    ctx.fill();
-    ctx.strokeStyle = "#999";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    // Pentagon pattern
-    ctx.beginPath();
-    for (let i = 0; i < 5; i++) {
-      const a = (i * 2 * Math.PI) / 5 - Math.PI / 2;
-      const px = this.x + Math.cos(a) * (this.radius * 0.5);
-      const py = this.y + Math.sin(a) * (this.radius * 0.5);
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    ctx.fillStyle = "rgba(0,0,0,0.15)";
-    ctx.fill();
-  }
-}
-
 // ─── Marble ─────────────────────────────────────────────────────
 class Marble {
-  constructor(team, startX, startY, id) {
+  constructor(team, startX, startY) {
     this.team = team;
-    this.id = id;
     this.radius = MARBLE_RADIUS;
     this.startX = startX;
     this.startY = startY;
     this.x = startX;
     this.y = startY;
-    this.vx = 0;
-    this.vy = 0;
+    // Start with a random strong velocity to bounce around
+    const a = Math.random() * Math.PI * 2;
+    const spd = 3 + Math.random() * 2;
+    this.vx = Math.cos(a) * spd;
+    this.vy = Math.sin(a) * spd;
     this.targetX = startX;
     this.targetY = startY;
     this.thinkTimer = 0;
@@ -731,50 +291,53 @@ class Marble {
   respawn() {
     this.x = this.startX;
     this.y = this.startY;
-    this.vx = 0;
-    this.vy = 0;
+    const a = Math.random() * Math.PI * 2;
+    const spd = 3 + Math.random() * 2;
+    this.vx = Math.cos(a) * spd;
+    this.vy = Math.sin(a) * spd;
     this.thinkTimer = 0;
   }
 
   think() {
     this.thinkTimer--;
     if (this.thinkTimer > 0) return;
-    this.thinkTimer = Math.floor(8 + Math.random() * 18);
+    this.thinkTimer = Math.floor(30 + Math.random() * 40);
 
-    // Predict where the goal will be in ~0.5s
-    const prediction = 25 + Math.random() * 20;
+    // Gentle nudge toward predicted goal position (imprecise AI)
+    const prediction = 40 + Math.random() * 50;
     const futureAngle = goalAngle + GOAL_SPEED * prediction;
-
-    // Target a point just inside the perimeter at the goal's future position
     const targetDist = FIELD_RADIUS - this.radius * 0.5;
     this.targetX = FIELD_CX + Math.cos(futureAngle) * targetDist;
     this.targetY = FIELD_CY + Math.sin(futureAngle) * targetDist;
 
-    // Add some noise scaled by inverse power (weaker teams = more noise)
-    const noise = (1.1 - this.team.power) * 60;
+    // Large noise — marbles mostly bounce, occasionally aim
+    const noise = 120 + (1.1 - this.team.power) * 80;
     this.targetX += (Math.random() - 0.5) * noise;
     this.targetY += (Math.random() - 0.5) * noise;
   }
 
   update() {
+    // Weak acceleration toward target (marbles mostly coast on momentum)
     const dx = this.targetX - this.x;
     const dy = this.targetY - this.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist > 1) {
-      const accel = 0.35 * this.team.power;
+      const accel = 0.12 * this.team.power;
       this.vx += (dx / dist) * accel;
       this.vy += (dy / dist) * accel;
     }
 
-    const maxSpeed = 4.5 * this.team.power;
+    // Speed cap
+    const maxSpeed = 5.5 * this.team.power;
     const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
     if (speed > maxSpeed) {
       this.vx = (this.vx / speed) * maxSpeed;
       this.vy = (this.vy / speed) * maxSpeed;
     }
 
-    this.vx *= 0.97;
-    this.vy *= 0.97;
+    // Very low friction — marbles keep bouncing
+    this.vx *= 0.998;
+    this.vy *= 0.998;
 
     this.x += this.vx;
     this.y += this.vy;
@@ -794,7 +357,7 @@ class Marble {
       this.x - r * 0.3, this.y - r * 0.3, r * 0.1,
       this.x, this.y, r
     );
-    grad.addColorStop(0, lightenColor(this.team.color, 50));
+    grad.addColorStop(0, lightenColor(this.team.color, 60));
     grad.addColorStop(1, this.team.color);
 
     ctx.beginPath();
@@ -805,16 +368,28 @@ class Marble {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Team logo
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    this.team.logo(ctx, r);
-    ctx.restore();
+    // Official logo image (or fallback initial)
+    if (this.team.logoLoaded) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, r * 0.72, 0, Math.PI * 2);
+      ctx.clip();
+      const imgSize = r * 1.44;
+      ctx.drawImage(this.team.logoImg, this.x - imgSize / 2, this.y - imgSize / 2, imgSize, imgSize);
+      ctx.restore();
+    } else {
+      // Fallback: team initial
+      ctx.fillStyle = this.team.accent;
+      ctx.font = `bold ${r * 0.9}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(this.team.name[0], this.x, this.y);
+    }
 
     // Shine highlight
     ctx.beginPath();
-    ctx.arc(this.x - r * 0.28, this.y - r * 0.28, r * 0.22, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    ctx.arc(this.x - r * 0.28, this.y - r * 0.28, r * 0.18, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
     ctx.fill();
   }
 }
@@ -828,31 +403,8 @@ function lightenColor(hex, amount) {
   return `rgb(${r},${g},${b})`;
 }
 
-// ─── Circular Field Constraint ──────────────────────────────────
-function constrainToField(obj) {
-  const dx = obj.x - FIELD_CX;
-  const dy = obj.y - FIELD_CY;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  const maxDist = FIELD_RADIUS - obj.radius;
-
-  if (dist > maxDist) {
-    // Push back inside
-    const nx = dx / dist;
-    const ny = dy / dist;
-    obj.x = FIELD_CX + nx * maxDist;
-    obj.y = FIELD_CY + ny * maxDist;
-
-    // Reflect velocity off the circular wall
-    const dot = obj.vx * nx + obj.vy * ny;
-    obj.vx -= 2 * dot * nx;
-    obj.vy -= 2 * dot * ny;
-    obj.vx *= 0.7;
-    obj.vy *= 0.7;
-  }
-}
-
-// Returns the scoring marble if one exits through the goal, otherwise null
-function constrainMarbleOrScore(marble) {
+// ─── Circular Field Constraint (bouncy walls) ───────────────────
+function constrainMarbleOrScore(marble, canScore) {
   const dx = marble.x - FIELD_CX;
   const dy = marble.y - FIELD_CY;
   const dist = Math.sqrt(dx * dx + dy * dy);
@@ -861,12 +413,12 @@ function constrainMarbleOrScore(marble) {
   if (dist > maxDist) {
     const angle = Math.atan2(dy, dx);
 
-    // Check if the marble is exiting through the goal opening
-    if (isAngleInGoal(angle)) {
-      return marble; // SCORED
+    // Score if exiting through the goal gap and team hasn't reached max
+    if (canScore && isAngleInGoal(angle)) {
+      return marble;
     }
 
-    // Otherwise bounce off the wall
+    // Bounce off the wall with high restitution
     const nx = dx / dist;
     const ny = dy / dist;
     marble.x = FIELD_CX + nx * maxDist;
@@ -875,27 +427,20 @@ function constrainMarbleOrScore(marble) {
     const dot = marble.vx * nx + marble.vy * ny;
     marble.vx -= 2 * dot * nx;
     marble.vy -= 2 * dot * ny;
-    marble.vx *= 0.7;
-    marble.vy *= 0.7;
+    // Very bouncy — keep 90% energy
+    marble.vx *= 0.9;
+    marble.vy *= 0.9;
   }
   return null;
 }
 
 // ─── Circle Collision ───────────────────────────────────────────
-function circleCollision(a, b) {
+function resolveElasticCollision(a, b) {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
   const minDist = a.radius + b.radius;
-  return dist < minDist ? { dx, dy, dist, minDist } : null;
-}
-
-function resolveElasticCollision(a, b, massA, massB) {
-  const col = circleCollision(a, b);
-  if (!col) return;
-
-  const { dx, dy, dist, minDist } = col;
-  if (dist === 0) return;
+  if (dist >= minDist || dist === 0) return;
 
   const nx = dx / dist;
   const ny = dy / dist;
@@ -911,13 +456,11 @@ function resolveElasticCollision(a, b, massA, massB) {
   const relNormal = dvx * nx + dvy * ny;
   if (relNormal < 0) return;
 
-  const restitution = 0.85;
-  const impulse = (2 * relNormal) / (massA + massB) * restitution;
-
-  a.vx -= impulse * massB * nx;
-  a.vy -= impulse * massB * ny;
-  b.vx += impulse * massA * nx;
-  b.vy += impulse * massA * ny;
+  // Full elastic collision
+  a.vx -= relNormal * nx;
+  a.vy -= relNormal * ny;
+  b.vx += relNormal * nx;
+  b.vy += relNormal * ny;
 }
 
 // ─── Drawing ────────────────────────────────────────────────────
@@ -926,7 +469,14 @@ function drawField() {
   ctx.fillStyle = "#111";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Field grass — radial gradient
+  // Title text above field
+  ctx.font = "bold 22px 'Segoe UI', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFD700";
+  ctx.fillText("kingofmarble10", FIELD_CX, TITLE_HEIGHT / 2 + 2);
+
+  // Field grass
   const grassGrad = ctx.createRadialGradient(
     FIELD_CX, FIELD_CY, 0,
     FIELD_CX, FIELD_CY, FIELD_RADIUS
@@ -939,7 +489,7 @@ function drawField() {
   ctx.fillStyle = grassGrad;
   ctx.fill();
 
-  // Field boundary ring (draw the wall part, skip the goal gap)
+  // Field boundary ring (skip goal gap)
   const gStart = normalizeAngle(goalAngle - GOAL_ARC / 2);
   const gEnd   = normalizeAngle(goalAngle + GOAL_ARC / 2);
 
@@ -969,7 +519,7 @@ function drawGoalGate() {
   const gStart = goalAngle - GOAL_ARC / 2;
   const gEnd   = goalAngle + GOAL_ARC / 2;
 
-  // Net area (arc extending outward)
+  // Net area
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gStart, gEnd);
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + GOAL_NET_DEPTH, gEnd, gStart, true);
@@ -983,24 +533,18 @@ function drawGoalGate() {
   const steps = 6;
   for (let i = 0; i <= steps; i++) {
     const a = gStart + (gEnd - gStart) * (i / steps);
-    const ix = FIELD_CX + Math.cos(a) * FIELD_RADIUS;
-    const iy = FIELD_CY + Math.sin(a) * FIELD_RADIUS;
-    const ox = FIELD_CX + Math.cos(a) * (FIELD_RADIUS + GOAL_NET_DEPTH);
-    const oy = FIELD_CY + Math.sin(a) * (FIELD_RADIUS + GOAL_NET_DEPTH);
     ctx.beginPath();
-    ctx.moveTo(ix, iy);
-    ctx.lineTo(ox, oy);
+    ctx.moveTo(FIELD_CX + Math.cos(a) * FIELD_RADIUS, FIELD_CY + Math.sin(a) * FIELD_RADIUS);
+    ctx.lineTo(FIELD_CX + Math.cos(a) * (FIELD_RADIUS + GOAL_NET_DEPTH), FIELD_CY + Math.sin(a) * (FIELD_RADIUS + GOAL_NET_DEPTH));
     ctx.stroke();
   }
-  // Cross lines in net
   for (let j = 1; j <= 2; j++) {
-    const r = FIELD_RADIUS + GOAL_NET_DEPTH * (j / 3);
     ctx.beginPath();
-    ctx.arc(FIELD_CX, FIELD_CY, r, gStart, gEnd);
+    ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + GOAL_NET_DEPTH * (j / 3), gStart, gEnd);
     ctx.stroke();
   }
 
-  // Goal opening highlight arc
+  // Goal highlight arc
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gStart, gEnd);
   ctx.strokeStyle = "#FFD700";
@@ -1060,22 +604,11 @@ function logEvent(msg) {
   matchLogEl.textContent = msg;
 }
 
-// ─── Marble Creation ────────────────────────────────────────────
-function createTeamMarbles(team, side) {
-  const marbles = [];
-  const angle = side === "left" ? Math.PI : 0;
-  const dist = FIELD_RADIUS * 0.4;
-  const x = FIELD_CX + Math.cos(angle) * dist;
-  const y = FIELD_CY + Math.sin(angle) * dist;
-  marbles.push(new Marble(team, x, y, team.name));
-  return marbles;
-}
-
 // ─── Record Frame ───────────────────────────────────────────────
 function recordFrame() {
   replayData.frames.push({
-    marbles: allMarbles.map(m => ({ x: m.x, y: m.y, team: m.team.name })),
-    ball: { x: ball.x, y: ball.y },
+    mA: { x: marbleA.x, y: marbleA.y },
+    mB: { x: marbleB.x, y: marbleB.y },
     goalAngle,
     scoreA,
     scoreB,
@@ -1102,8 +635,8 @@ function gameLoop(timestamp) {
     if (goalCooldown > 0) {
       goalCooldown--;
       drawField();
-      allMarbles.forEach(m => m.draw());
-      ball.draw();
+      marbleA.draw();
+      marbleB.draw();
       updateScoreboard(timeLeft);
       recordFrame();
       animFrameId = requestAnimationFrame(gameLoop);
@@ -1111,55 +644,40 @@ function gameLoop(timestamp) {
     }
 
     // AI + Update
-    allMarbles.forEach(m => {
-      m.think();
-      m.update();
-    });
-    ball.update();
+    marbleA.think();
+    marbleB.think();
+    marbleA.update();
+    marbleB.update();
 
-    // Marble ↔ ball collisions
-    allMarbles.forEach(m => resolveElasticCollision(m, ball, 2.0, 1.0));
+    // Marble ↔ marble collision
+    resolveElasticCollision(marbleA, marbleB);
 
-    // Marble ↔ marble collisions
-    for (let i = 0; i < allMarbles.length; i++) {
-      for (let j = i + 1; j < allMarbles.length; j++) {
-        resolveElasticCollision(allMarbles[i], allMarbles[j], 1.0, 1.0);
-      }
-    }
+    // Check scoring (only if team hasn't reached MAX_GOALS)
+    const resultA = constrainMarbleOrScore(marbleA, scoreA < MAX_GOALS);
+    const resultB = constrainMarbleOrScore(marbleB, scoreB < MAX_GOALS);
 
-    // Check scoring: marble exits through goal gap
-    let scored = null;
-    for (const m of allMarbles) {
-      const result = constrainMarbleOrScore(m);
-      if (result && !scored) {
-        scored = result;
-      }
-    }
-
-    if (scored) {
-      const isTeamA = marblesA.includes(scored);
-      if (isTeamA) scoreA++;
-      else scoreB++;
-
-      replayData.goals.push({
-        frame: replayData.frames.length,
-        team: scored.team.name,
-        time: matchTimer
-      });
-
+    if (resultA) {
+      scoreA++;
+      replayData.goals.push({ frame: replayData.frames.length, team: teamAData.name, time: matchTimer });
       showGoalFlash();
-      logEvent(`GOL! ${scored.team.name} segna! (${scoreA} - ${scoreB})`);
-
-      // Respawn the scoring marble + ball
-      scored.respawn();
-      ball.reset();
-      goalCooldown = 45;
+      logEvent(`GOL! ${teamAData.name} segna! (${scoreA} - ${scoreB})`);
+      marbleA.respawn();
+      marbleB.respawn();
+      goalCooldown = 50;
+    } else if (resultB) {
+      scoreB++;
+      replayData.goals.push({ frame: replayData.frames.length, team: teamBData.name, time: matchTimer });
+      showGoalFlash();
+      logEvent(`GOL! ${teamBData.name} segna! (${scoreA} - ${scoreB})`);
+      marbleA.respawn();
+      marbleB.respawn();
+      goalCooldown = 50;
     }
 
     // Draw
     drawField();
-    ball.draw();
-    allMarbles.forEach(m => m.draw());
+    marbleA.draw();
+    marbleB.draw();
 
     updateScoreboard(timeLeft);
     recordFrame();
@@ -1188,10 +706,9 @@ function startMatch() {
   teamAData = teams[parseInt(selA.value)];
   teamBData = teams[parseInt(selB.value)];
 
-  marblesA = createTeamMarbles(teamAData, "left");
-  marblesB = createTeamMarbles(teamBData, "right");
-  allMarbles = [...marblesA, ...marblesB];
-  ball = new Ball();
+  const distFromCenter = FIELD_RADIUS * 0.4;
+  marbleA = new Marble(teamAData, FIELD_CX - distFromCenter, FIELD_CY);
+  marbleB = new Marble(teamBData, FIELD_CX + distFromCenter, FIELD_CY);
 
   scoreA = 0;
   scoreB = 0;
@@ -1244,19 +761,14 @@ function drawReplayFrame(idx) {
   const f = replayData.frames[idx];
 
   goalAngle = f.goalAngle;
-
-  f.marbles.forEach((md, i) => {
-    if (i < allMarbles.length) {
-      allMarbles[i].x = md.x;
-      allMarbles[i].y = md.y;
-    }
-  });
-  ball.x = f.ball.x;
-  ball.y = f.ball.y;
+  marbleA.x = f.mA.x;
+  marbleA.y = f.mA.y;
+  marbleB.x = f.mB.x;
+  marbleB.y = f.mB.y;
 
   drawField();
-  ball.draw();
-  allMarbles.forEach(m => m.draw());
+  marbleA.draw();
+  marbleB.draw();
 
   scoreA = f.scoreA;
   scoreB = f.scoreB;

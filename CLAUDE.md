@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**Football Marble Race** is a browser-based game where AI-controlled marbles race inside a **circular arena** to reach a **rotating goal**. Two teams of 5 marbles each compete — when any marble exits through the spinning goal gap, that team scores a point. A loose ball bounces around adding physics chaos. Matches last 60 seconds, with full replay and JSON export support.
+**Football Marble Race** is a browser-based game where two AI-controlled marbles (one per team) bounce inside a **circular arena** trying to reach a **rotating goal**. When a marble exits through the spinning goal gap, that team scores a point. Matches are capped at **3–3** (max 3 goals per team) and last 60 seconds, with full replay and JSON export support. The title **"kingofmarble10"** is displayed above the arena.
 
 ## Repository Status
 
@@ -20,9 +20,10 @@ marblerace/
 ## Tech Stack
 
 - **Language**: Vanilla JavaScript (ES6+), no frameworks or build tools
-- **Rendering**: HTML5 Canvas 2D (`<canvas>` element, 700×700)
+- **Rendering**: HTML5 Canvas 2D (`<canvas>` element, 520×560)
 - **Styling**: Inline `<style>` block
-- **Dependencies**: None — zero external libraries, runs in any modern browser
+- **External Assets**: Official team crests loaded from [football-data.org](https://crests.football-data.org/) CDN
+- **Dependencies**: None — zero JS libraries, runs in any modern browser
 
 ## Quick Reference
 
@@ -38,14 +39,13 @@ open index.html
 The game is a self-contained single HTML file with three logical layers:
 
 ### Game Objects (Classes)
-- **`Ball`** — the football. Bounces inside the circular field, constrained by `constrainToField()`.
-- **`Marble`** — a team marble (5 per team) with simple AI. Predicts where the rotating goal will be and races toward it. Each marble displays a canvas-drawn team logo.
+- **`Marble`** — a team marble (1 per team) with simple AI. Bounces energetically around the arena. Predicts where the rotating goal will be and loosely steers toward it. Each marble displays an **official team crest** loaded as an image, with a fallback to the team's initial letter if the image fails to load.
 
 ### Physics & Collision
 - **`circleCollision(a, b)`** — detects overlap between two circles.
-- **`resolveElasticCollision(a, b, massA, massB)`** — impulse-based elastic response with restitution. Handles marble↔ball and marble↔marble.
-- **`constrainToField(obj)`** — keeps the ball inside the circular arena by reflecting velocity off the curved wall.
-- **`constrainMarbleOrScore(marble)`** — same wall constraint for marbles, but when a marble hits the perimeter at the **goal opening**, it passes through and scores instead of bouncing.
+- **`resolveElasticCollision(a, b)`** — impulse-based elastic response with high restitution. Handles marble↔marble collisions.
+- **`constrainMarbleOrScore(marble, canScore)`** — keeps marbles inside the circular arena by reflecting velocity off the curved wall (restitution 0.9 for bouncy behavior). When a marble hits the perimeter at the **goal opening** and `canScore` is true (team has < 3 goals), it passes through and scores instead of bouncing.
+- **Bouncy physics**: very low friction (0.998), high wall restitution (0.9), and random initial velocities create energetic side-to-side bouncing.
 
 ### Circular Field & Rotating Goal
 - The arena is a circle centered at `(FIELD_CX, FIELD_CY)` with radius `FIELD_RADIUS`.
@@ -54,18 +54,20 @@ The game is a self-contained single HTML file with three logical layers:
 - The goal is drawn with posts, a net backdrop, and a golden highlight.
 
 ### Team Logos
-- Each team has a `logo` function (e.g., `drawMilanLogo(ctx, r)`) that draws a simplified crest using Canvas 2D primitives (stripes, shapes, initials).
-- Logos are rendered centered on each marble via `ctx.save/translate/restore`.
+- Each team has a `logoUrl` pointing to the official crest on football-data.org (e.g., `https://crests.football-data.org/98.png` for Milan).
+- Logos are preloaded at startup via `new Image()` with `crossOrigin = "anonymous"`.
+- On each marble, the logo is drawn clipped to a circle (72% of marble radius) for a clean look.
+- If an image fails to load, the team's initial letter is rendered as fallback.
 
 ### Game Flow
-1. **Team selection** — two `<select>` dropdowns populated from the `teams[]` array (10 Serie A clubs with name, color, accent, power, and logo draw function).
-2. **`startMatch()`** — creates 5 marbles per team + 1 ball, resets state, starts the `requestAnimationFrame` loop.
+1. **Team selection** — two `<select>` dropdowns populated from the `teams[]` array (10 Serie A clubs with name, color, accent, power, and logoUrl).
+2. **`startMatch()`** — creates 1 marble per team, resets state, starts the `requestAnimationFrame` loop.
 3. **`gameLoop(timestamp)`** — ~60 FPS. Each tick: rotate goal → AI think → update positions → resolve collisions → check scoring → draw → record replay frame.
-4. **Scoring** — when a marble exits through the goal gap, that team gets +1. The scoring marble respawns at its start position, the ball respawns at center, and a brief cooldown pauses action.
+4. **Scoring** — when a marble exits through the goal gap, that team gets +1 (max 3). Both marbles respawn and a brief cooldown pauses action.
 5. **`endMatch()`** — stops the loop, shows result, enables replay controls.
 
 ### Replay System
-- Every frame records all marble positions, ball position, goal angle, scores, and elapsed time.
+- Every frame records marble positions, goal angle, scores, and elapsed time.
 - After the match, a slider + play/pause buttons let the user scrub through frames.
 - **JSON export**: full replay data downloaded as `.json`.
 
@@ -73,11 +75,12 @@ The game is a self-contained single HTML file with three logical layers:
 | Constant | Value | Purpose |
 |---|---|---|
 | `MATCH_DURATION` | 60 | Match length in seconds |
-| `BALL_RADIUS` | 12 | Football radius in px |
-| `MARBLE_RADIUS` | 18 | Marble radius in px |
-| `MARBLES_PER_TEAM` | 5 | Marbles per team |
-| `FIELD_RADIUS` | 300 | Circular arena radius in px |
-| `GOAL_ARC` | 0.44 | Goal opening width in radians (~25°) |
+| `MARBLE_RADIUS` | 26 | Marble radius in px |
+| `MAX_GOALS` | 3 | Maximum goals per team per match |
+| `FIELD_RADIUS` | 220 | Circular arena radius in px |
+| `FIELD_CX / CY` | 260 / 296 | Arena center (CY offset by TITLE_HEIGHT) |
+| `TITLE_HEIGHT` | 36 | Space reserved for "kingofmarble10" text |
+| `GOAL_ARC` | 0.32 | Goal opening width in radians (~18°) |
 | `GOAL_SPEED` | 2π/(10×60) | Goal rotation speed (1 rev / 10 sec) |
 | `FPS` | 60 | Target frames per second |
 
