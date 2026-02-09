@@ -278,9 +278,9 @@ class Marble {
     this.startY = startY;
     this.x = startX;
     this.y = startY;
-    // Start with a random strong velocity to bounce around
+    // Launch with strong random velocity
     const a = Math.random() * Math.PI * 2;
-    const spd = 3 + Math.random() * 2;
+    const spd = 5 + Math.random() * 3;
     this.vx = Math.cos(a) * spd;
     this.vy = Math.sin(a) * spd;
     this.targetX = startX;
@@ -292,7 +292,7 @@ class Marble {
     this.x = this.startX;
     this.y = this.startY;
     const a = Math.random() * Math.PI * 2;
-    const spd = 3 + Math.random() * 2;
+    const spd = 5 + Math.random() * 3;
     this.vx = Math.cos(a) * spd;
     this.vy = Math.sin(a) * spd;
     this.thinkTimer = 0;
@@ -317,27 +317,27 @@ class Marble {
   }
 
   update() {
-    // Weak acceleration toward target (marbles mostly coast on momentum)
+    // Tiny nudge toward target — marbles coast on momentum
     const dx = this.targetX - this.x;
     const dy = this.targetY - this.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist > 1) {
-      const accel = 0.12 * this.team.power;
+      const accel = 0.08 * this.team.power;
       this.vx += (dx / dist) * accel;
       this.vy += (dy / dist) * accel;
     }
 
-    // Speed cap
-    const maxSpeed = 5.5 * this.team.power;
+    // Speed cap (high — springs launch fast)
+    const maxSpeed = 9 * this.team.power;
     const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
     if (speed > maxSpeed) {
       this.vx = (this.vx / speed) * maxSpeed;
       this.vy = (this.vy / speed) * maxSpeed;
     }
 
-    // Very low friction — marbles keep bouncing
-    this.vx *= 0.998;
-    this.vy *= 0.998;
+    // No gravity, near-zero friction — marbles keep full momentum
+    this.vx *= 0.999;
+    this.vy *= 0.999;
 
     this.x += this.vx;
     this.y += this.vy;
@@ -403,7 +403,10 @@ function lightenColor(hex, amount) {
   return `rgb(${r},${g},${b})`;
 }
 
-// ─── Circular Field Constraint (bouncy walls) ───────────────────
+// ─── Circular Field Constraint (spring walls) ───────────────────
+const SPRING_BOOST = 1.15;        // walls ADD 15% energy on bounce
+const MIN_BOUNCE_SPEED = 4.5;     // minimum speed after wall hit
+
 function constrainMarbleOrScore(marble, canScore) {
   const dx = marble.x - FIELD_CX;
   const dy = marble.y - FIELD_CY;
@@ -418,18 +421,28 @@ function constrainMarbleOrScore(marble, canScore) {
       return marble;
     }
 
-    // Bounce off the wall with high restitution
+    // Push marble back onto the wall edge
     const nx = dx / dist;
     const ny = dy / dist;
     marble.x = FIELD_CX + nx * maxDist;
     marble.y = FIELD_CY + ny * maxDist;
 
+    // Reflect velocity off wall normal
     const dot = marble.vx * nx + marble.vy * ny;
     marble.vx -= 2 * dot * nx;
     marble.vy -= 2 * dot * ny;
-    // Very bouncy — keep 90% energy
-    marble.vx *= 0.9;
-    marble.vy *= 0.9;
+
+    // SPRING effect: boost speed on every bounce (walls add energy)
+    marble.vx *= SPRING_BOOST;
+    marble.vy *= SPRING_BOOST;
+
+    // Guarantee a minimum launch speed so marbles always fly across
+    const speed = Math.sqrt(marble.vx * marble.vx + marble.vy * marble.vy);
+    if (speed < MIN_BOUNCE_SPEED) {
+      const scale = MIN_BOUNCE_SPEED / (speed || 1);
+      marble.vx *= scale;
+      marble.vy *= scale;
+    }
   }
   return null;
 }
@@ -456,11 +469,12 @@ function resolveElasticCollision(a, b) {
   const relNormal = dvx * nx + dvy * ny;
   if (relNormal < 0) return;
 
-  // Full elastic collision
-  a.vx -= relNormal * nx;
-  a.vy -= relNormal * ny;
-  b.vx += relNormal * nx;
-  b.vy += relNormal * ny;
+  // Super-elastic collision (spring-like, adds energy)
+  const bounce = 1.2;
+  a.vx -= bounce * relNormal * nx;
+  a.vy -= bounce * relNormal * ny;
+  b.vx += bounce * relNormal * nx;
+  b.vy += bounce * relNormal * ny;
 }
 
 // ─── Drawing ────────────────────────────────────────────────────
