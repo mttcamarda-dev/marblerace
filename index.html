@@ -167,7 +167,8 @@
 
 <script>
 // ─── Configuration ──────────────────────────────────────────────
-const MATCH_DURATION = 60;
+const MATCH_DURATION = 50;            // real seconds the match lasts
+const MATCH_MINUTES = 90;             // simulated football minutes (0' → 90')
 const MARBLE_RADIUS = 26;
 const MAX_GOALS = 3;          // max goals per team
 const FPS = 60;
@@ -182,7 +183,7 @@ const FIELD_RADIUS = 220;
 // Rotating goal — narrower arc for fewer goals
 const GOAL_ARC = 0.32;
 const GOAL_SPEED = (2 * Math.PI) / (10 * FPS);
-const GOAL_NET_DEPTH = 22;
+const GOAL_NET_DEPTH = 32;
 
 // ─── Teams with official logo URLs (football-data.org crests) ───
 const teams = [
@@ -301,19 +302,13 @@ class Marble {
   think() {
     this.thinkTimer--;
     if (this.thinkTimer > 0) return;
-    this.thinkTimer = Math.floor(30 + Math.random() * 40);
+    this.thinkTimer = Math.floor(40 + Math.random() * 60);
 
-    // Gentle nudge toward predicted goal position (imprecise AI)
-    const prediction = 40 + Math.random() * 50;
-    const futureAngle = goalAngle + GOAL_SPEED * prediction;
-    const targetDist = FIELD_RADIUS - this.radius * 0.5;
-    this.targetX = FIELD_CX + Math.cos(futureAngle) * targetDist;
-    this.targetY = FIELD_CY + Math.sin(futureAngle) * targetDist;
-
-    // Large noise — marbles mostly bounce, occasionally aim
-    const noise = 120 + (1.1 - this.team.power) * 80;
-    this.targetX += (Math.random() - 0.5) * noise;
-    this.targetY += (Math.random() - 0.5) * noise;
+    // Completely random target — no goal seeking at all
+    const randAngle = Math.random() * Math.PI * 2;
+    const randDist = Math.random() * FIELD_RADIUS * 0.85;
+    this.targetX = FIELD_CX + Math.cos(randAngle) * randDist;
+    this.targetY = FIELD_CY + Math.sin(randAngle) * randDist;
   }
 
   update() {
@@ -533,18 +528,18 @@ function drawGoalGate() {
   const gStart = goalAngle - GOAL_ARC / 2;
   const gEnd   = goalAngle + GOAL_ARC / 2;
 
-  // Net area
+  // Net backdrop (larger, semi-transparent)
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gStart, gEnd);
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + GOAL_NET_DEPTH, gEnd, gStart, true);
   ctx.closePath();
-  ctx.fillStyle = "rgba(255,215,0,0.12)";
+  ctx.fillStyle = "rgba(255,255,255,0.08)";
   ctx.fill();
 
-  // Net lines
-  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  // Net mesh — radial lines
+  ctx.strokeStyle = "rgba(255,255,255,0.25)";
   ctx.lineWidth = 1;
-  const steps = 6;
+  const steps = 8;
   for (let i = 0; i <= steps; i++) {
     const a = gStart + (gEnd - gStart) * (i / steps);
     ctx.beginPath();
@@ -552,56 +547,66 @@ function drawGoalGate() {
     ctx.lineTo(FIELD_CX + Math.cos(a) * (FIELD_RADIUS + GOAL_NET_DEPTH), FIELD_CY + Math.sin(a) * (FIELD_RADIUS + GOAL_NET_DEPTH));
     ctx.stroke();
   }
-  for (let j = 1; j <= 2; j++) {
+  // Net mesh — concentric arcs
+  for (let j = 1; j <= 3; j++) {
     ctx.beginPath();
-    ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + GOAL_NET_DEPTH * (j / 3), gStart, gEnd);
+    ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + GOAL_NET_DEPTH * (j / 4), gStart, gEnd);
     ctx.stroke();
   }
 
-  // Goal highlight arc
-  ctx.beginPath();
-  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gStart, gEnd);
-  ctx.strokeStyle = "#FFD700";
-  ctx.lineWidth = 4;
-  ctx.stroke();
-
-  // Outer net arc
+  // Outer net border
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + GOAL_NET_DEPTH, gStart, gEnd);
-  ctx.strokeStyle = "rgba(255,255,255,0.3)";
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Goal posts
+  // Goal line (opening arc)
+  ctx.beginPath();
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gStart, gEnd);
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // White goal posts (larger, white with shadow)
   const p1x = FIELD_CX + Math.cos(gStart) * FIELD_RADIUS;
   const p1y = FIELD_CY + Math.sin(gStart) * FIELD_RADIUS;
   const p2x = FIELD_CX + Math.cos(gEnd)   * FIELD_RADIUS;
   const p2y = FIELD_CY + Math.sin(gEnd)   * FIELD_RADIUS;
 
   [{ x: p1x, y: p1y }, { x: p2x, y: p2y }].forEach(p => {
+    // Shadow
     ctx.beginPath();
-    ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
-    ctx.fillStyle = "#FFD700";
+    ctx.arc(p.x + 1, p.y + 1, 7, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
     ctx.fill();
-    ctx.strokeStyle = "#B8860B";
+    // Post
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+    ctx.strokeStyle = "#ccc";
     ctx.lineWidth = 1.5;
     ctx.stroke();
   });
 }
 
 // ─── Scoreboard & UI ────────────────────────────────────────────
-function updateScoreboard(timeLeft) {
+function getMatchMinute(elapsed) {
+  // Map real elapsed seconds (0→MATCH_DURATION) to football minutes (0→90)
+  return Math.min(MATCH_MINUTES, Math.floor((elapsed / MATCH_DURATION) * MATCH_MINUTES));
+}
+
+function updateScoreboard(elapsed) {
   if (!teamAData || !teamBData) { scoreboard.innerHTML = ""; return; }
-  const mins = Math.floor(timeLeft / 60);
-  const secs = Math.floor(timeLeft % 60);
-  const timeStr = `${mins}:${secs.toString().padStart(2, "0")}`;
+  const minute = getMatchMinute(elapsed);
 
   scoreboard.innerHTML = `
     <span class="team-score">
       <span class="dot" style="background:${teamAData.color}"></span>
       ${teamAData.name} ${scoreA}
     </span>
-    <span class="timer">${timeStr}</span>
+    <span class="timer">${minute}'</span>
     <span class="team-score">
       ${scoreB} ${teamBData.name}
       <span class="dot" style="background:${teamBData.color}"></span>
@@ -640,7 +645,6 @@ function gameLoop(timestamp) {
   if (delta >= FRAME_MS) {
     lastTimestamp = timestamp;
     matchTimer += delta / 1000;
-    const timeLeft = Math.max(0, MATCH_DURATION - matchTimer);
 
     // Rotate goal
     goalAngle += GOAL_SPEED;
@@ -651,7 +655,7 @@ function gameLoop(timestamp) {
       drawField();
       marbleA.draw();
       marbleB.draw();
-      updateScoreboard(timeLeft);
+      updateScoreboard(matchTimer);
       recordFrame();
       animFrameId = requestAnimationFrame(gameLoop);
       return;
@@ -672,17 +676,19 @@ function gameLoop(timestamp) {
 
     if (resultA) {
       scoreA++;
-      replayData.goals.push({ frame: replayData.frames.length, team: teamAData.name, time: matchTimer });
+      const minute = getMatchMinute(matchTimer);
+      replayData.goals.push({ frame: replayData.frames.length, team: teamAData.name, minute });
       showGoalFlash();
-      logEvent(`GOL! ${teamAData.name} segna! (${scoreA} - ${scoreB})`);
+      logEvent(`GOL! ${teamAData.name} segna al ${minute}'! (${scoreA} - ${scoreB})`);
       marbleA.respawn();
       marbleB.respawn();
       goalCooldown = 50;
     } else if (resultB) {
       scoreB++;
-      replayData.goals.push({ frame: replayData.frames.length, team: teamBData.name, time: matchTimer });
+      const minute = getMatchMinute(matchTimer);
+      replayData.goals.push({ frame: replayData.frames.length, team: teamBData.name, minute });
       showGoalFlash();
-      logEvent(`GOL! ${teamBData.name} segna! (${scoreA} - ${scoreB})`);
+      logEvent(`GOL! ${teamBData.name} segna al ${minute}'! (${scoreA} - ${scoreB})`);
       marbleA.respawn();
       marbleB.respawn();
       goalCooldown = 50;
@@ -693,10 +699,10 @@ function gameLoop(timestamp) {
     marbleA.draw();
     marbleB.draw();
 
-    updateScoreboard(timeLeft);
+    updateScoreboard(matchTimer);
     recordFrame();
 
-    if (timeLeft <= 0) {
+    if (matchTimer >= MATCH_DURATION) {
       endMatch();
       return;
     }
@@ -786,11 +792,10 @@ function drawReplayFrame(idx) {
 
   scoreA = f.scoreA;
   scoreB = f.scoreB;
-  updateScoreboard(Math.max(0, MATCH_DURATION - f.time));
+  updateScoreboard(f.time);
 
-  const mins = Math.floor(f.time / 60);
-  const secs = Math.floor(f.time % 60);
-  replayTimeEl.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
+  const minute = getMatchMinute(f.time);
+  replayTimeEl.textContent = `${minute}'`;
 }
 
 function replayLoop() {
@@ -847,7 +852,7 @@ btnDL.addEventListener("click", () => {
 
 // ─── Initial Draw ───────────────────────────────────────────────
 drawField();
-updateScoreboard(MATCH_DURATION);
+updateScoreboard(0);
 logEvent("Seleziona le squadre e premi 'Gioca partita'");
 </script>
 
