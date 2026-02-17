@@ -15,8 +15,11 @@ let racing = false;
 let animationId = null;
 
 function resizeCanvas() {
-    canvas.width = canvas.offsetWidth;
-    canvas.height = TEAMS.length * LANE_HEIGHT + PADDING * 2;
+    const w = canvas.clientWidth || 800;
+    const h = TEAMS.length * LANE_HEIGHT + PADDING * 2;
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.height = h + "px";
 }
 
 function createMarbles() {
@@ -44,7 +47,7 @@ function drawTrack() {
 
         // Team name label
         ctx.fillStyle = "rgba(255,255,255,0.3)";
-        ctx.font = "12px sans-serif";
+        ctx.font = "13px sans-serif";
         ctx.textBaseline = "middle";
         ctx.fillText(TEAMS[i].name, 8, y + LANE_HEIGHT / 2);
     }
@@ -138,12 +141,16 @@ function updateLeaderboard() {
     }
 }
 
-function raceLoop() {
-    updateMarbles();
+function drawAll() {
     drawTrack();
     for (const marble of marbles) {
         drawMarble(marble);
     }
+}
+
+function raceLoop() {
+    updateMarbles();
+    drawAll();
     updateLeaderboard();
 
     if (finishOrder.length < TEAMS.length) {
@@ -171,10 +178,7 @@ function resetRace() {
     startBtn.disabled = false;
     resetBtn.disabled = true;
     createMarbles();
-    drawTrack();
-    for (const marble of marbles) {
-        drawMarble(marble);
-    }
+    drawAll();
     updateLeaderboard();
 }
 
@@ -184,18 +188,15 @@ resetBtn.addEventListener("click", resetRace);
 window.addEventListener("resize", () => {
     resizeCanvas();
     if (!racing) {
-        drawTrack();
-        for (const marble of marbles) {
-            drawMarble(marble);
-        }
+        createMarbles();
+        drawAll();
     }
 });
 
-// Initialize
-resizeCanvas();
-createMarbles();
-drawTrack();
-for (const marble of marbles) {
-    drawMarble(marble);
-}
-updateLeaderboard();
+// Initialize after page is fully loaded
+window.addEventListener("load", function () {
+    resizeCanvas();
+    createMarbles();
+    drawAll();
+    updateLeaderboard();
+});
