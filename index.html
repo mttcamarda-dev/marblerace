@@ -171,6 +171,7 @@ const MATCH_DURATION = 50;            // real seconds the match lasts
 const MATCH_MINUTES = 90;             // simulated football minutes (0' → 90')
 const MARBLE_RADIUS = 26;
 const MAX_GOALS = 3;          // max goals per team
+const MAX_TOTAL_GOALS = 5;    // max total goals in the match
 const FPS = 60;
 const FRAME_MS = 1000 / FPS;
 
@@ -181,7 +182,7 @@ const FIELD_CY = 260 + TITLE_HEIGHT;
 const FIELD_RADIUS = 190;
 
 // Rotating goal — narrower arc for fewer goals
-const GOAL_ARC = 0.32;
+const GOAL_ARC = 0.25;
 const GOAL_SPEED = (2 * Math.PI) / (10 * FPS);
 const GOAL_NET_DEPTH = 32;
 
@@ -676,9 +677,12 @@ function gameLoop(timestamp) {
     // Marble ↔ marble collision
     resolveElasticCollision(marbleA, marbleB);
 
-    // Check scoring (only if team hasn't reached MAX_GOALS)
-    const resultA = constrainMarbleOrScore(marbleA, scoreA < MAX_GOALS);
-    const resultB = constrainMarbleOrScore(marbleB, scoreB < MAX_GOALS);
+    // Check scoring (only if team and total haven't reached max)
+    const totalGoals = scoreA + scoreB;
+    const canScoreA = scoreA < MAX_GOALS && totalGoals < MAX_TOTAL_GOALS;
+    const canScoreB = scoreB < MAX_GOALS && totalGoals < MAX_TOTAL_GOALS;
+    const resultA = constrainMarbleOrScore(marbleA, canScoreA);
+    const resultB = constrainMarbleOrScore(marbleB, canScoreB);
 
     if (resultA) {
       scoreA++;
