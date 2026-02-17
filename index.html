@@ -498,42 +498,83 @@ function resolveElasticCollision(a, b) {
 // ─── Drawing ────────────────────────────────────────────────────
 function drawField() {
   // Dark background
-  ctx.fillStyle = "#111";
+  ctx.fillStyle = "#0a0a1a";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Title text above field
+  // Title text above field with glow
+  ctx.save();
   ctx.font = "bold 22px 'Segoe UI', sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+  ctx.shadowColor = "#FFD700";
+  ctx.shadowBlur = 12;
   ctx.fillStyle = "#FFD700";
   ctx.fillText("kingofmarble10", FIELD_CX, TITLE_HEIGHT / 2 + 2);
+  ctx.restore();
 
-  // Field grass
+  // Outer glow around the field
+  const glowGrad = ctx.createRadialGradient(
+    FIELD_CX, FIELD_CY, FIELD_RADIUS - 10,
+    FIELD_CX, FIELD_CY, FIELD_RADIUS + 25
+  );
+  glowGrad.addColorStop(0, "rgba(13,180,60,0.25)");
+  glowGrad.addColorStop(1, "rgba(13,180,60,0)");
+  ctx.beginPath();
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + 25, 0, Math.PI * 2);
+  ctx.fillStyle = glowGrad;
+  ctx.fill();
+
+  // Field grass — richer gradient
   const grassGrad = ctx.createRadialGradient(
-    FIELD_CX, FIELD_CY, 0,
+    FIELD_CX - 30, FIELD_CY - 30, 20,
     FIELD_CX, FIELD_CY, FIELD_RADIUS
   );
-  grassGrad.addColorStop(0, "#0d7a2b");
-  grassGrad.addColorStop(1, "#085a1e");
+  grassGrad.addColorStop(0, "#15a03a");
+  grassGrad.addColorStop(0.5, "#0d8a2b");
+  grassGrad.addColorStop(1, "#065a18");
 
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, 0, Math.PI * 2);
   ctx.fillStyle = grassGrad;
   ctx.fill();
 
-  // Field boundary ring (skip goal gap)
+  // Grass mowing pattern (alternating stripes)
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS - 1, 0, Math.PI * 2);
+  ctx.clip();
+  const stripeW = 30;
+  for (let x = FIELD_CX - FIELD_RADIUS; x < FIELD_CX + FIELD_RADIUS; x += stripeW * 2) {
+    ctx.fillStyle = "rgba(255,255,255,0.025)";
+    ctx.fillRect(x, FIELD_CY - FIELD_RADIUS, stripeW, FIELD_RADIUS * 2);
+  }
+  ctx.restore();
+
+  // Field boundary ring (skip goal gap) — thicker, with glow
   const gStart = normalizeAngle(goalAngle - GOAL_ARC / 2);
   const gEnd   = normalizeAngle(goalAngle + GOAL_ARC / 2);
 
+  ctx.save();
+  ctx.shadowColor = "rgba(255,255,255,0.3)";
+  ctx.shadowBlur = 6;
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gEnd, gStart);
-  ctx.strokeStyle = "rgba(255,255,255,0.4)";
+  ctx.strokeStyle = "rgba(255,255,255,0.5)";
   ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.restore();
+
+  // Halfway line (horizontal through center)
+  ctx.beginPath();
+  ctx.moveTo(FIELD_CX - FIELD_RADIUS + 8, FIELD_CY);
+  ctx.lineTo(FIELD_CX + FIELD_RADIUS - 8, FIELD_CY);
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1;
   ctx.stroke();
 
   // Center circle
   ctx.beginPath();
-  ctx.arc(FIELD_CX, FIELD_CY, 36, 0, Math.PI * 2);
+  ctx.arc(FIELD_CX, FIELD_CY, 40, 0, Math.PI * 2);
   ctx.strokeStyle = "rgba(255,255,255,0.15)";
   ctx.lineWidth = 1.5;
   ctx.stroke();
@@ -541,8 +582,15 @@ function drawField() {
   // Center dot
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, 4, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(255,255,255,0.25)";
+  ctx.fillStyle = "rgba(255,255,255,0.3)";
   ctx.fill();
+
+  // Inner ring decoration
+  ctx.beginPath();
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS * 0.6, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255,255,255,0.05)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
 
   drawGoalGate();
 }
