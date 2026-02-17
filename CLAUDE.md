@@ -2,35 +2,32 @@
 
 ## Project Overview
 
-**Marble Race** is a new project. The repository has been initialized but application development has not yet begun. This file serves as the foundational guide for AI assistants working on this codebase.
+**Marble Race** is a browser-based marble racing game. Teams (represented as colored marbles) race across a canvas track with randomized physics. Built with vanilla HTML, CSS, and JavaScript — no build tools or dependencies required.
 
 ## Repository Status
 
-- **State**: Initialized — no application code, build tools, or dependencies yet
 - **Remote**: `origin` at `mttcamarda-dev/marblerace`
 - **Primary branch**: `master`
-- **Tech stack**: Not yet established
+- **Tech stack**: Vanilla HTML5 / CSS / JavaScript (no frameworks, no bundler)
 - **CI/CD**: Not yet configured
-- **Dependencies**: None (no package.json, pyproject.toml, or similar)
+- **Dependencies**: None — runs directly in any modern browser
 
 ## Directory Structure
 
 ```
 marblerace/
-└── CLAUDE.md          # This file — project guide for AI assistants
+├── CLAUDE.md      # Project guide for AI assistants
+├── index.html     # Entry point — loads CSS and JS
+├── style.css      # Layout and styling
+├── teams.js       # Team data (names, colors)
+└── script.js      # Race logic, canvas rendering, UI
 ```
-
-No source code, configuration files, or build infrastructure exists yet. The first development task should establish the tech stack and project scaffolding.
 
 ## Quick Reference
 
-No build, test, or lint commands are available yet. Update this section as tooling is added:
-
 ```bash
-# Build:    (not yet configured)
-# Test:     (not yet configured)
-# Lint:     (not yet configured)
-# Dev:      (not yet configured)
+# Run:  Open index.html in a browser (no server required)
+# Dev:  python3 -m http.server   (or any static file server)
 ```
 
 ## Development Guidelines

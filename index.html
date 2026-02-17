@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marble Race</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <h1>Marble Race</h1>
+        <div id="controls">
+            <button id="startBtn">Start Race</button>
+            <button id="resetBtn" disabled>Reset</button>
+        </div>
+        <canvas id="raceCanvas"></canvas>
+        <div id="leaderboard">
+            <h2>Classifica</h2>
+            <ol id="rankings"></ol>
+        </div>
+    </div>
+    <script src="teams.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
