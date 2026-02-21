@@ -599,11 +599,33 @@ function resolveElasticCollision(a, b) {
   b.vy += bounce * relNormal * ny;
 }
 
+// ─── Starfield (generated once) ─────────────────────────────────
+const _stars = [];
+for (let i = 0; i < 60; i++) {
+  _stars.push({
+    x: Math.random() * 520,
+    y: Math.random() * 560,
+    r: 0.4 + Math.random() * 1.2,
+    a: 0.15 + Math.random() * 0.35
+  });
+}
+
 // ─── Drawing ────────────────────────────────────────────────────
 function drawField() {
-  // Dark background
-  ctx.fillStyle = "#0a0a1a";
+  // Dark gradient background
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  bgGrad.addColorStop(0, "#060614");
+  bgGrad.addColorStop(1, "#0c1228");
+  ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Subtle stars
+  _stars.forEach(s => {
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${s.a})`;
+    ctx.fill();
+  });
 
   // Title text above field with glow
   ctx.save();
@@ -611,20 +633,34 @@ function drawField() {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.shadowColor = "#FFD700";
-  ctx.shadowBlur = 12;
+  ctx.shadowBlur = 18;
   ctx.fillStyle = "#FFD700";
   ctx.fillText("kingofmarble10", FIELD_CX, TITLE_HEIGHT / 2 + 2);
+  ctx.shadowBlur = 6;
+  ctx.fillText("kingofmarble10", FIELD_CX, TITLE_HEIGHT / 2 + 2);
+  ctx.restore();
+
+  // Drop shadow under the field
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
+  ctx.shadowBlur = 30;
+  ctx.shadowOffsetY = 8;
+  ctx.beginPath();
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(0,0,0,0)";
+  ctx.fill();
   ctx.restore();
 
   // Outer glow around the field
   const glowGrad = ctx.createRadialGradient(
     FIELD_CX, FIELD_CY, FIELD_RADIUS - 10,
-    FIELD_CX, FIELD_CY, FIELD_RADIUS + 25
+    FIELD_CX, FIELD_CY, FIELD_RADIUS + 30
   );
-  glowGrad.addColorStop(0, "rgba(13,180,60,0.25)");
+  glowGrad.addColorStop(0, "rgba(13,180,60,0.3)");
+  glowGrad.addColorStop(0.6, "rgba(13,180,60,0.08)");
   glowGrad.addColorStop(1, "rgba(13,180,60,0)");
   ctx.beginPath();
-  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + 25, 0, Math.PI * 2);
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + 30, 0, Math.PI * 2);
   ctx.fillStyle = glowGrad;
   ctx.fill();
 
@@ -633,8 +669,9 @@ function drawField() {
     FIELD_CX - 30, FIELD_CY - 30, 20,
     FIELD_CX, FIELD_CY, FIELD_RADIUS
   );
-  grassGrad.addColorStop(0, "#15a03a");
-  grassGrad.addColorStop(0.5, "#0d8a2b");
+  grassGrad.addColorStop(0, "#18b040");
+  grassGrad.addColorStop(0.4, "#0f9430");
+  grassGrad.addColorStop(0.8, "#087522");
   grassGrad.addColorStop(1, "#065a18");
 
   ctx.beginPath();
@@ -642,57 +679,87 @@ function drawField() {
   ctx.fillStyle = grassGrad;
   ctx.fill();
 
-  // Grass mowing pattern (alternating stripes)
+  // Diagonal grass mowing pattern
   ctx.save();
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS - 1, 0, Math.PI * 2);
   ctx.clip();
-  const stripeW = 30;
-  for (let x = FIELD_CX - FIELD_RADIUS; x < FIELD_CX + FIELD_RADIUS; x += stripeW * 2) {
-    ctx.fillStyle = "rgba(255,255,255,0.025)";
-    ctx.fillRect(x, FIELD_CY - FIELD_RADIUS, stripeW, FIELD_RADIUS * 2);
+  const stripeW = 28;
+  ctx.fillStyle = "rgba(255,255,255,0.022)";
+  for (let i = -FIELD_RADIUS * 3; i < FIELD_RADIUS * 3; i += stripeW * 2) {
+    ctx.beginPath();
+    ctx.moveTo(FIELD_CX + i, FIELD_CY - FIELD_RADIUS);
+    ctx.lineTo(FIELD_CX + i + FIELD_RADIUS, FIELD_CY + FIELD_RADIUS);
+    ctx.lineTo(FIELD_CX + i + FIELD_RADIUS + stripeW, FIELD_CY + FIELD_RADIUS);
+    ctx.lineTo(FIELD_CX + i + stripeW, FIELD_CY - FIELD_RADIUS);
+    ctx.closePath();
+    ctx.fill();
   }
   ctx.restore();
 
-  // Field boundary ring (skip goal gap) — thicker, with glow
+  // Inner edge shadow (depth effect)
+  const edgeShadow = ctx.createRadialGradient(
+    FIELD_CX, FIELD_CY, FIELD_RADIUS * 0.85,
+    FIELD_CX, FIELD_CY, FIELD_RADIUS
+  );
+  edgeShadow.addColorStop(0, "rgba(0,0,0,0)");
+  edgeShadow.addColorStop(1, "rgba(0,0,0,0.2)");
+  ctx.beginPath();
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, 0, Math.PI * 2);
+  ctx.fillStyle = edgeShadow;
+  ctx.fill();
+
+  // Field boundary ring (skip goal gap)
   const gStart = normalizeAngle(goalAngle - GOAL_ARC / 2);
   const gEnd   = normalizeAngle(goalAngle + GOAL_ARC / 2);
 
+  // Outer white ring with glow
   ctx.save();
-  ctx.shadowColor = "rgba(255,255,255,0.3)";
-  ctx.shadowBlur = 6;
+  ctx.shadowColor = "rgba(255,255,255,0.35)";
+  ctx.shadowBlur = 8;
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gEnd, gStart);
-  ctx.strokeStyle = "rgba(255,255,255,0.5)";
-  ctx.lineWidth = 4;
+  ctx.strokeStyle = "rgba(255,255,255,0.55)";
+  ctx.lineWidth = 3.5;
   ctx.stroke();
   ctx.restore();
 
+  // Thin inner boundary line
+  ctx.beginPath();
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS - 5, gEnd, gStart);
+  ctx.strokeStyle = "rgba(255,255,255,0.07)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
   // Halfway line (horizontal through center)
   ctx.beginPath();
-  ctx.moveTo(FIELD_CX - FIELD_RADIUS + 8, FIELD_CY);
-  ctx.lineTo(FIELD_CX + FIELD_RADIUS - 8, FIELD_CY);
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
-  ctx.lineWidth = 1;
+  ctx.moveTo(FIELD_CX - FIELD_RADIUS + 10, FIELD_CY);
+  ctx.lineTo(FIELD_CX + FIELD_RADIUS - 10, FIELD_CY);
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 1.5;
   ctx.stroke();
 
   // Center circle
   ctx.beginPath();
-  ctx.arc(FIELD_CX, FIELD_CY, 40, 0, Math.PI * 2);
+  ctx.arc(FIELD_CX, FIELD_CY, 42, 0, Math.PI * 2);
   ctx.strokeStyle = "rgba(255,255,255,0.15)";
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  // Center dot
+  // Center dot with glow
+  ctx.save();
+  ctx.shadowColor = "rgba(255,255,255,0.4)";
+  ctx.shadowBlur = 6;
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, 4, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(255,255,255,0.3)";
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
   ctx.fill();
+  ctx.restore();
 
   // Inner ring decoration
   ctx.beginPath();
-  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS * 0.6, 0, Math.PI * 2);
-  ctx.strokeStyle = "rgba(255,255,255,0.05)";
+  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS * 0.58, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255,255,255,0.04)";
   ctx.lineWidth = 1;
   ctx.stroke();
 
@@ -703,17 +770,17 @@ function drawGoalGate() {
   const gStart = goalAngle - GOAL_ARC / 2;
   const gEnd   = goalAngle + GOAL_ARC / 2;
 
-  // Net backdrop (larger, semi-transparent)
+  // Net backdrop with golden tint
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gStart, gEnd);
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + GOAL_NET_DEPTH, gEnd, gStart, true);
   ctx.closePath();
-  ctx.fillStyle = "rgba(255,255,255,0.08)";
+  ctx.fillStyle = "rgba(255,215,0,0.06)";
   ctx.fill();
 
   // Net mesh — radial lines
-  ctx.strokeStyle = "rgba(255,255,255,0.25)";
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  ctx.lineWidth = 0.8;
   const steps = 8;
   for (let i = 0; i <= steps; i++) {
     const a = gStart + (gEnd - gStart) * (i / steps);
@@ -729,21 +796,25 @@ function drawGoalGate() {
     ctx.stroke();
   }
 
-  // Outer net border
+  // Outer net border (golden)
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + GOAL_NET_DEPTH, gStart, gEnd);
-  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.strokeStyle = "rgba(255,215,0,0.35)";
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Goal line (opening arc)
+  // Goal line (opening arc — golden glow)
+  ctx.save();
+  ctx.shadowColor = "rgba(255,215,0,0.5)";
+  ctx.shadowBlur = 10;
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gStart, gEnd);
-  ctx.strokeStyle = "#fff";
+  ctx.strokeStyle = "#FFD700";
   ctx.lineWidth = 3;
   ctx.stroke();
+  ctx.restore();
 
-  // White goal posts (larger, white with shadow)
+  // Goal posts with golden accent
   const p1x = FIELD_CX + Math.cos(gStart) * FIELD_RADIUS;
   const p1y = FIELD_CY + Math.sin(gStart) * FIELD_RADIUS;
   const p2x = FIELD_CX + Math.cos(gEnd)   * FIELD_RADIUS;
@@ -753,14 +824,17 @@ function drawGoalGate() {
     // Shadow
     ctx.beginPath();
     ctx.arc(p.x + 1, p.y + 1, 7, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
     ctx.fill();
-    // Post
+    // Post body
+    const postGrad = ctx.createRadialGradient(p.x - 2, p.y - 2, 1, p.x, p.y, 7);
+    postGrad.addColorStop(0, "#fff");
+    postGrad.addColorStop(1, "#d4af37");
     ctx.beginPath();
     ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle = postGrad;
     ctx.fill();
-    ctx.strokeStyle = "#ccc";
+    ctx.strokeStyle = "rgba(255,215,0,0.6)";
     ctx.lineWidth = 1.5;
     ctx.stroke();
   });
