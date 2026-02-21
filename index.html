@@ -620,13 +620,13 @@ for (let i = 0; i < 60; i++) {
 // ─── Theme palettes ─────────────────────────────────────────────
 const THEMES = {
   day: {
-    bg1: "#87CEEB", bg2: "#B0E0FF",
+    bg1: "#1a1a2e", bg2: "#1a1a2e",
     grass: ["#2ecc40", "#27ae36", "#1e8c2a", "#167d22"],
     glow: "rgba(30,200,70,0.2)",
     edgeShadow: 0.1,
     boundary: "rgba(255,255,255,0.6)",
     lineColor: "rgba(255,255,255,0.2)",
-    titleColor: "#1a5c1a", titleGlow: "rgba(255,255,255,0.6)",
+    titleColor: "#FFD700", titleGlow: "rgba(255,215,0,0.6)",
     goalLine: "#fff", goalGlow: "rgba(255,255,255,0.4)",
     netTint: "rgba(255,255,255,0.1)",
     netBorder: "rgba(200,200,200,0.5)",
@@ -634,10 +634,10 @@ const THEMES = {
     stripeAlpha: 0.035
   },
   sunset: {
-    bg1: "#1a0a2e", bg2: "#4a1942",
+    bg1: "#1f1520", bg2: "#1a1a2e",
     grass: ["#1a8c30", "#137524", "#0d5c1c", "#084a14"],
-    glow: "rgba(255,120,30,0.25)",
-    edgeShadow: 0.25,
+    glow: "rgba(255,120,30,0.2)",
+    edgeShadow: 0.2,
     boundary: "rgba(255,200,100,0.5)",
     lineColor: "rgba(255,220,150,0.12)",
     titleColor: "#FF6B35", titleGlow: "rgba(255,107,53,0.7)",
@@ -674,15 +674,13 @@ function drawField() {
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Sunset sky bands
+  // Subtle warm tint for sunset
   if (timeOfDay === "sunset") {
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.5);
-    skyGrad.addColorStop(0, "rgba(255,107,53,0.15)");
-    skyGrad.addColorStop(0.4, "rgba(255,165,0,0.1)");
-    skyGrad.addColorStop(0.7, "rgba(200,50,80,0.08)");
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.4);
+    skyGrad.addColorStop(0, "rgba(255,120,50,0.06)");
     skyGrad.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height * 0.5);
+    ctx.fillRect(0, 0, canvas.width, canvas.height * 0.4);
   }
 
   // Stars (night only)
