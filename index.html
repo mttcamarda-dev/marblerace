@@ -161,6 +161,11 @@
   <select id="teamA"></select>
   <span class="vs">VS</span>
   <select id="teamB"></select>
+  <select id="timeOfDay">
+    <option value="day">Giorno</option>
+    <option value="sunset">Tramonto</option>
+    <option value="night" selected>Sera</option>
+  </select>
   <button id="start">Gioca partita</button>
   <button id="downloadReplay" disabled>Scarica Replay</button>
 </div>
@@ -334,6 +339,7 @@ const selA     = document.getElementById("teamA");
 const selB     = document.getElementById("teamB");
 const btnStart = document.getElementById("start");
 const btnDL    = document.getElementById("downloadReplay");
+const selTime  = document.getElementById("timeOfDay");
 const scoreboard   = document.getElementById("scoreboard");
 const goalFlashEl  = document.getElementById("goalFlash");
 const matchLogEl   = document.getElementById("matchLog");
@@ -372,6 +378,7 @@ let marbleB = null;
 let goalCooldown = 0;
 let teamAData = null;
 let teamBData = null;
+let timeOfDay = "night";   // "day" | "sunset" | "night"
 
 // ─── Replay Data ────────────────────────────────────────────────
 let replayData = { teams: {}, frames: [], goals: [] };
@@ -599,7 +606,7 @@ function resolveElasticCollision(a, b) {
   b.vy += bounce * relNormal * ny;
 }
 
-// ─── Starfield (generated once) ─────────────────────────────────
+// ─── Starfield for night mode (generated once) ─────────────────
 const _stars = [];
 for (let i = 0; i < 60; i++) {
   _stars.push({
@@ -610,45 +617,95 @@ for (let i = 0; i < 60; i++) {
   });
 }
 
+// ─── Theme palettes ─────────────────────────────────────────────
+const THEMES = {
+  day: {
+    bg1: "#87CEEB", bg2: "#B0E0FF",
+    grass: ["#2ecc40", "#27ae36", "#1e8c2a", "#167d22"],
+    glow: "rgba(30,200,70,0.2)",
+    edgeShadow: 0.1,
+    boundary: "rgba(255,255,255,0.6)",
+    lineColor: "rgba(255,255,255,0.2)",
+    titleColor: "#1a5c1a", titleGlow: "rgba(255,255,255,0.6)",
+    goalLine: "#fff", goalGlow: "rgba(255,255,255,0.4)",
+    netTint: "rgba(255,255,255,0.1)",
+    netBorder: "rgba(200,200,200,0.5)",
+    postFill1: "#fff", postFill2: "#ddd", postStroke: "rgba(180,180,180,0.8)",
+    stripeAlpha: 0.035
+  },
+  sunset: {
+    bg1: "#1a0a2e", bg2: "#4a1942",
+    grass: ["#1a8c30", "#137524", "#0d5c1c", "#084a14"],
+    glow: "rgba(255,120,30,0.25)",
+    edgeShadow: 0.25,
+    boundary: "rgba(255,200,100,0.5)",
+    lineColor: "rgba(255,220,150,0.12)",
+    titleColor: "#FF6B35", titleGlow: "rgba(255,107,53,0.7)",
+    goalLine: "#FF8C42", goalGlow: "rgba(255,140,66,0.6)",
+    netTint: "rgba(255,140,50,0.07)",
+    netBorder: "rgba(255,160,60,0.4)",
+    postFill1: "#fff", postFill2: "#FF8C42", postStroke: "rgba(255,140,66,0.7)",
+    stripeAlpha: 0.02
+  },
+  night: {
+    bg1: "#060614", bg2: "#0c1228",
+    grass: ["#18b040", "#0f9430", "#087522", "#065a18"],
+    glow: "rgba(13,180,60,0.3)",
+    edgeShadow: 0.2,
+    boundary: "rgba(255,255,255,0.55)",
+    lineColor: "rgba(255,255,255,0.12)",
+    titleColor: "#FFD700", titleGlow: "rgba(255,215,0,0.8)",
+    goalLine: "#FFD700", goalGlow: "rgba(255,215,0,0.5)",
+    netTint: "rgba(255,215,0,0.06)",
+    netBorder: "rgba(255,215,0,0.35)",
+    postFill1: "#fff", postFill2: "#d4af37", postStroke: "rgba(255,215,0,0.6)",
+    stripeAlpha: 0.022
+  }
+};
+
 // ─── Drawing ────────────────────────────────────────────────────
 function drawField() {
-  // Dark gradient background
+  const T = THEMES[timeOfDay] || THEMES.night;
+
+  // Background
   const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  bgGrad.addColorStop(0, "#060614");
-  bgGrad.addColorStop(1, "#0c1228");
+  bgGrad.addColorStop(0, T.bg1);
+  bgGrad.addColorStop(1, T.bg2);
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Subtle stars
-  _stars.forEach(s => {
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255,255,255,${s.a})`;
-    ctx.fill();
-  });
+  // Sunset sky bands
+  if (timeOfDay === "sunset") {
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.5);
+    skyGrad.addColorStop(0, "rgba(255,107,53,0.15)");
+    skyGrad.addColorStop(0.4, "rgba(255,165,0,0.1)");
+    skyGrad.addColorStop(0.7, "rgba(200,50,80,0.08)");
+    skyGrad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height * 0.5);
+  }
 
-  // Title text above field with glow
+  // Stars (night only)
+  if (timeOfDay === "night") {
+    _stars.forEach(s => {
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${s.a})`;
+      ctx.fill();
+    });
+  }
+
+  // Title text
   ctx.save();
   ctx.font = "bold 22px 'Segoe UI', sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.shadowColor = "#FFD700";
+  ctx.shadowColor = T.titleGlow;
   ctx.shadowBlur = 18;
-  ctx.fillStyle = "#FFD700";
+  ctx.fillStyle = T.titleColor;
   ctx.fillText("kingofmarble10", FIELD_CX, TITLE_HEIGHT / 2 + 2);
   ctx.shadowBlur = 6;
   ctx.fillText("kingofmarble10", FIELD_CX, TITLE_HEIGHT / 2 + 2);
-  ctx.restore();
-
-  // Drop shadow under the field
-  ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.5)";
-  ctx.shadowBlur = 30;
-  ctx.shadowOffsetY = 8;
-  ctx.beginPath();
-  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(0,0,0,0)";
-  ctx.fill();
   ctx.restore();
 
   // Outer glow around the field
@@ -656,54 +713,58 @@ function drawField() {
     FIELD_CX, FIELD_CY, FIELD_RADIUS - 10,
     FIELD_CX, FIELD_CY, FIELD_RADIUS + 30
   );
-  glowGrad.addColorStop(0, "rgba(13,180,60,0.3)");
-  glowGrad.addColorStop(0.6, "rgba(13,180,60,0.08)");
-  glowGrad.addColorStop(1, "rgba(13,180,60,0)");
+  glowGrad.addColorStop(0, T.glow);
+  glowGrad.addColorStop(1, "rgba(0,0,0,0)");
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + 30, 0, Math.PI * 2);
   ctx.fillStyle = glowGrad;
   ctx.fill();
 
-  // Field grass — richer gradient
+  // Field grass
   const grassGrad = ctx.createRadialGradient(
     FIELD_CX - 30, FIELD_CY - 30, 20,
     FIELD_CX, FIELD_CY, FIELD_RADIUS
   );
-  grassGrad.addColorStop(0, "#18b040");
-  grassGrad.addColorStop(0.4, "#0f9430");
-  grassGrad.addColorStop(0.8, "#087522");
-  grassGrad.addColorStop(1, "#065a18");
-
+  grassGrad.addColorStop(0, T.grass[0]);
+  grassGrad.addColorStop(0.4, T.grass[1]);
+  grassGrad.addColorStop(0.8, T.grass[2]);
+  grassGrad.addColorStop(1, T.grass[3]);
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, 0, Math.PI * 2);
   ctx.fillStyle = grassGrad;
   ctx.fill();
 
-  // Diagonal grass mowing pattern
+  // Mowing stripes (vertical for day, diagonal for sunset/night)
   ctx.save();
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS - 1, 0, Math.PI * 2);
   ctx.clip();
-  const stripeW = 28;
-  ctx.fillStyle = "rgba(255,255,255,0.022)";
-  for (let i = -FIELD_RADIUS * 3; i < FIELD_RADIUS * 3; i += stripeW * 2) {
-    ctx.beginPath();
-    ctx.moveTo(FIELD_CX + i, FIELD_CY - FIELD_RADIUS);
-    ctx.lineTo(FIELD_CX + i + FIELD_RADIUS, FIELD_CY + FIELD_RADIUS);
-    ctx.lineTo(FIELD_CX + i + FIELD_RADIUS + stripeW, FIELD_CY + FIELD_RADIUS);
-    ctx.lineTo(FIELD_CX + i + stripeW, FIELD_CY - FIELD_RADIUS);
-    ctx.closePath();
-    ctx.fill();
+  const stripeW = timeOfDay === "day" ? 30 : 28;
+  ctx.fillStyle = `rgba(255,255,255,${T.stripeAlpha})`;
+  if (timeOfDay === "day") {
+    for (let x = FIELD_CX - FIELD_RADIUS; x < FIELD_CX + FIELD_RADIUS; x += stripeW * 2) {
+      ctx.fillRect(x, FIELD_CY - FIELD_RADIUS, stripeW, FIELD_RADIUS * 2);
+    }
+  } else {
+    for (let i = -FIELD_RADIUS * 3; i < FIELD_RADIUS * 3; i += stripeW * 2) {
+      ctx.beginPath();
+      ctx.moveTo(FIELD_CX + i, FIELD_CY - FIELD_RADIUS);
+      ctx.lineTo(FIELD_CX + i + FIELD_RADIUS, FIELD_CY + FIELD_RADIUS);
+      ctx.lineTo(FIELD_CX + i + FIELD_RADIUS + stripeW, FIELD_CY + FIELD_RADIUS);
+      ctx.lineTo(FIELD_CX + i + stripeW, FIELD_CY - FIELD_RADIUS);
+      ctx.closePath();
+      ctx.fill();
+    }
   }
   ctx.restore();
 
-  // Inner edge shadow (depth effect)
+  // Inner edge shadow
   const edgeShadow = ctx.createRadialGradient(
     FIELD_CX, FIELD_CY, FIELD_RADIUS * 0.85,
     FIELD_CX, FIELD_CY, FIELD_RADIUS
   );
   edgeShadow.addColorStop(0, "rgba(0,0,0,0)");
-  edgeShadow.addColorStop(1, "rgba(0,0,0,0.2)");
+  edgeShadow.addColorStop(1, `rgba(0,0,0,${T.edgeShadow})`);
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, 0, Math.PI * 2);
   ctx.fillStyle = edgeShadow;
@@ -713,69 +774,51 @@ function drawField() {
   const gStart = normalizeAngle(goalAngle - GOAL_ARC / 2);
   const gEnd   = normalizeAngle(goalAngle + GOAL_ARC / 2);
 
-  // Outer white ring with glow
   ctx.save();
-  ctx.shadowColor = "rgba(255,255,255,0.35)";
+  ctx.shadowColor = T.boundary;
   ctx.shadowBlur = 8;
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gEnd, gStart);
-  ctx.strokeStyle = "rgba(255,255,255,0.55)";
+  ctx.strokeStyle = T.boundary;
   ctx.lineWidth = 3.5;
   ctx.stroke();
   ctx.restore();
 
-  // Thin inner boundary line
-  ctx.beginPath();
-  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS - 5, gEnd, gStart);
-  ctx.strokeStyle = "rgba(255,255,255,0.07)";
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  // Halfway line (horizontal through center)
+  // Halfway line
   ctx.beginPath();
   ctx.moveTo(FIELD_CX - FIELD_RADIUS + 10, FIELD_CY);
   ctx.lineTo(FIELD_CX + FIELD_RADIUS - 10, FIELD_CY);
-  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.strokeStyle = T.lineColor;
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
   // Center circle
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, 42, 0, Math.PI * 2);
-  ctx.strokeStyle = "rgba(255,255,255,0.15)";
+  ctx.strokeStyle = T.lineColor;
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  // Center dot with glow
-  ctx.save();
-  ctx.shadowColor = "rgba(255,255,255,0.4)";
-  ctx.shadowBlur = 6;
+  // Center dot
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, 4, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.fillStyle = T.lineColor;
   ctx.fill();
-  ctx.restore();
-
-  // Inner ring decoration
-  ctx.beginPath();
-  ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS * 0.58, 0, Math.PI * 2);
-  ctx.strokeStyle = "rgba(255,255,255,0.04)";
-  ctx.lineWidth = 1;
-  ctx.stroke();
 
   drawGoalGate();
 }
 
 function drawGoalGate() {
+  const T = THEMES[timeOfDay] || THEMES.night;
   const gStart = goalAngle - GOAL_ARC / 2;
   const gEnd   = goalAngle + GOAL_ARC / 2;
 
-  // Net backdrop with golden tint
+  // Net backdrop
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gStart, gEnd);
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + GOAL_NET_DEPTH, gEnd, gStart, true);
   ctx.closePath();
-  ctx.fillStyle = "rgba(255,215,0,0.06)";
+  ctx.fillStyle = T.netTint;
   ctx.fill();
 
   // Net mesh — radial lines
@@ -796,45 +839,43 @@ function drawGoalGate() {
     ctx.stroke();
   }
 
-  // Outer net border (golden)
+  // Outer net border
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS + GOAL_NET_DEPTH, gStart, gEnd);
-  ctx.strokeStyle = "rgba(255,215,0,0.35)";
+  ctx.strokeStyle = T.netBorder;
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Goal line (opening arc — golden glow)
+  // Goal line
   ctx.save();
-  ctx.shadowColor = "rgba(255,215,0,0.5)";
+  ctx.shadowColor = T.goalGlow;
   ctx.shadowBlur = 10;
   ctx.beginPath();
   ctx.arc(FIELD_CX, FIELD_CY, FIELD_RADIUS, gStart, gEnd);
-  ctx.strokeStyle = "#FFD700";
+  ctx.strokeStyle = T.goalLine;
   ctx.lineWidth = 3;
   ctx.stroke();
   ctx.restore();
 
-  // Goal posts with golden accent
+  // Goal posts
   const p1x = FIELD_CX + Math.cos(gStart) * FIELD_RADIUS;
   const p1y = FIELD_CY + Math.sin(gStart) * FIELD_RADIUS;
   const p2x = FIELD_CX + Math.cos(gEnd)   * FIELD_RADIUS;
   const p2y = FIELD_CY + Math.sin(gEnd)   * FIELD_RADIUS;
 
   [{ x: p1x, y: p1y }, { x: p2x, y: p2y }].forEach(p => {
-    // Shadow
     ctx.beginPath();
     ctx.arc(p.x + 1, p.y + 1, 7, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
     ctx.fill();
-    // Post body
     const postGrad = ctx.createRadialGradient(p.x - 2, p.y - 2, 1, p.x, p.y, 7);
-    postGrad.addColorStop(0, "#fff");
-    postGrad.addColorStop(1, "#d4af37");
+    postGrad.addColorStop(0, T.postFill1);
+    postGrad.addColorStop(1, T.postFill2);
     ctx.beginPath();
     ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
     ctx.fillStyle = postGrad;
     ctx.fill();
-    ctx.strokeStyle = "rgba(255,215,0,0.6)";
+    ctx.strokeStyle = T.postStroke;
     ctx.lineWidth = 1.5;
     ctx.stroke();
   });
@@ -977,6 +1018,7 @@ function startMatch() {
 
   teamAData = teams[parseInt(selA.value)];
   teamBData = teams[parseInt(selB.value)];
+  timeOfDay = selTime.value;
 
   const distFromCenter = FIELD_RADIUS * 0.4;
   marbleA = new Marble(teamAData, FIELD_CX - distFromCenter, FIELD_CY);
@@ -1102,7 +1144,16 @@ btnDL.addEventListener("click", () => {
   URL.revokeObjectURL(url);
 });
 
+// ─── Time-of-day preview ────────────────────────────────────────
+selTime.addEventListener("change", () => {
+  if (!gameRunning) {
+    timeOfDay = selTime.value;
+    drawField();
+  }
+});
+
 // ─── Initial Draw ───────────────────────────────────────────────
+timeOfDay = selTime.value;
 drawField();
 updateScoreboard(0);
 logEvent("Seleziona le squadre e premi 'Gioca partita'");
