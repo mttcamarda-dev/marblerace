@@ -47,6 +47,20 @@
       border: 1px solid #0f3460;
     }
 
+    optgroup {
+      background: #16213e;
+      color: #aaa;
+      font-style: normal;
+      font-weight: 700;
+      padding: 4px 0;
+    }
+
+    optgroup option {
+      color: #eee;
+      font-weight: 400;
+      padding-left: 8px;
+    }
+
     button {
       background: #0f3460;
       color: #eee;
@@ -188,43 +202,49 @@ const GOAL_NET_DEPTH = 32;
 
 // ─── Teams with official logo URLs (football-data.org crests) ───
 const teams = [
-  { name: "Milan",      color: "#AC1E2D", accent: "#000",    power: 1.00, logoUrl: "https://crests.football-data.org/98.png" },
-  { name: "Inter",      color: "#0055A4", accent: "#000",    power: 1.05, logoUrl: "https://crests.football-data.org/108.png" },
-  { name: "Juventus",   color: "#000000", accent: "#fff",    power: 1.03, logoUrl: "https://crests.football-data.org/109.png" },
-  { name: "Roma",       color: "#8E1F2F", accent: "#F0BC42", power: 0.98, logoUrl: "https://crests.football-data.org/100.png" },
-  { name: "Napoli",     color: "#1E90FF", accent: "#fff",    power: 1.04, logoUrl: "https://crests.football-data.org/113.png" },
-  { name: "Lazio",      color: "#87CEEB", accent: "#1C2C5B", power: 0.97, logoUrl: "https://crests.football-data.org/110.png" },
-  { name: "Fiorentina", color: "#6A0DAD", accent: "#fff",    power: 0.96, logoUrl: "https://crests.football-data.org/99.png" },
-  { name: "Atalanta",   color: "#1C1C1C", accent: "#0074D9", power: 1.01, logoUrl: "https://crests.football-data.org/102.png" },
-  { name: "Torino",     color: "#8B0000", accent: "#fff",    power: 0.95, logoUrl: "https://crests.football-data.org/586.png" },
-  { name: "Bologna",    color: "#A41E35", accent: "#1B3D6D", power: 0.94, logoUrl: "https://crests.football-data.org/103.png" },
-  { name: "Real Madrid",color: "#FEBE10", accent: "#00529F", power: 1.06, logoUrl: "https://crests.football-data.org/86.png" },
-  { name: "PSG",        color: "#004170", accent: "#DA291C", power: 1.04, logoUrl: "https://crests.football-data.org/524.png" },
-  { name: "B. Dortmund",color: "#FDE100", accent: "#000",    power: 1.02, logoUrl: "https://crests.football-data.org/4.png" },
-  { name: "Galatasaray",color: "#FFC72C", accent: "#A6192E", power: 1.00, logoUrl: "https://crests.football-data.org/610.png" },
-  { name: "Benfica",    color: "#FF0000", accent: "#fff",    power: 1.01, logoUrl: "https://crests.football-data.org/5531.png" },
-  { name: "Monaco",     color: "#E7192E", accent: "#fff",    power: 0.99, logoUrl: "https://crests.football-data.org/548.png" },
-  { name: "Cagliari",   color: "#A42032", accent: "#1C3C6E", power: 0.93, logoUrl: "https://crests.football-data.org/104.png" },
-  { name: "Como",       color: "#003DA5", accent: "#fff",    power: 0.92, logoUrl: "https://crests.football-data.org/7397.png" },
-  { name: "Pisa",       color: "#003F87", accent: "#000",    power: 0.91, logoUrl: "https://crests.football-data.org/5890.png" },
-  { name: "Lecce",      color: "#FFD700", accent: "#E3242B", power: 0.93, logoUrl: "https://crests.football-data.org/5765.png" },
-  { name: "Cremonese",  color: "#A62B2F", accent: "#6F6F6F", power: 0.90, logoUrl: "https://crests.football-data.org/8529.png" },
-  { name: "Qarabag",    color: "#000000", accent: "#FFD700", power: 0.88, logoUrl: "https://crests.football-data.org/7284.png" },
-  { name: "Newcastle",  color: "#241F20", accent: "#fff",    power: 1.03, logoUrl: "https://crests.football-data.org/67.png" },
-  { name: "Bodø/Glimt", color: "#FFD700", accent: "#000",   power: 0.92, logoUrl: "https://crests.football-data.org/6956.png" },
-  { name: "Club Brugge",color: "#0054A6", accent: "#000",    power: 0.95, logoUrl: "https://crests.football-data.org/851.png" },
-  { name: "Atl. Madrid", color: "#CB3524", accent: "#27509B", power: 1.04, logoUrl: "https://crests.football-data.org/78.png" },
-  { name: "Olympiakos", color: "#CC0000", accent: "#fff",    power: 0.94, logoUrl: "https://crests.football-data.org/567.png" },
-  { name: "B. Leverkusen", color: "#E32221", accent: "#000", power: 1.05, logoUrl: "https://crests.football-data.org/3.png" },
-  { name: "Arsenal",    color: "#EF0107", accent: "#fff",    power: 1.04, logoUrl: "https://crests.football-data.org/57.png" },
-  { name: "Wolves",     color: "#FDB913", accent: "#231F20", power: 0.96, logoUrl: "https://crests.football-data.org/76.png" },
-  { name: "Levante",    color: "#003DA5", accent: "#E31837", power: 0.89, logoUrl: "https://crests.football-data.org/88.png" },
-  { name: "Villarreal", color: "#FFE114", accent: "#005DAA", power: 0.97, logoUrl: "https://crests.football-data.org/94.png" },
-  { name: "Tottenham",  color: "#132257", accent: "#fff",    power: 1.02, logoUrl: "https://crests.football-data.org/73.png" },
-  { name: "Nott. Forest",color: "#DD0000", accent: "#fff",   power: 0.96, logoUrl: "https://crests.football-data.org/351.png" },
-  { name: "Genoa",      color: "#A41E34", accent: "#00387B", power: 0.93, logoUrl: "https://crests.football-data.org/107.png" },
-  { name: "Parma",      color: "#FEDD00", accent: "#0033A0", power: 0.92, logoUrl: "https://crests.football-data.org/112.png" },
-  { name: "Liverpool",  color: "#C8102E", accent: "#fff",    power: 1.06, logoUrl: "https://crests.football-data.org/64.png" },
+  // ── Serie A ──
+  { name: "Milan",      color: "#AC1E2D", accent: "#000",    power: 1.00, league: "Serie A",     logoUrl: "https://crests.football-data.org/98.png" },
+  { name: "Inter",      color: "#0055A4", accent: "#000",    power: 1.05, league: "Serie A",     logoUrl: "https://crests.football-data.org/108.png" },
+  { name: "Juventus",   color: "#000000", accent: "#fff",    power: 1.03, league: "Serie A",     logoUrl: "https://crests.football-data.org/109.png" },
+  { name: "Roma",       color: "#8E1F2F", accent: "#F0BC42", power: 0.98, league: "Serie A",     logoUrl: "https://crests.football-data.org/100.png" },
+  { name: "Napoli",     color: "#1E90FF", accent: "#fff",    power: 1.04, league: "Serie A",     logoUrl: "https://crests.football-data.org/113.png" },
+  { name: "Lazio",      color: "#87CEEB", accent: "#1C2C5B", power: 0.97, league: "Serie A",     logoUrl: "https://crests.football-data.org/110.png" },
+  { name: "Fiorentina", color: "#6A0DAD", accent: "#fff",    power: 0.96, league: "Serie A",     logoUrl: "https://crests.football-data.org/99.png" },
+  { name: "Atalanta",   color: "#1C1C1C", accent: "#0074D9", power: 1.01, league: "Serie A",     logoUrl: "https://crests.football-data.org/102.png" },
+  { name: "Torino",     color: "#8B0000", accent: "#fff",    power: 0.95, league: "Serie A",     logoUrl: "https://crests.football-data.org/586.png" },
+  { name: "Bologna",    color: "#A41E35", accent: "#1B3D6D", power: 0.94, league: "Serie A",     logoUrl: "https://crests.football-data.org/103.png" },
+  { name: "Cagliari",   color: "#A42032", accent: "#1C3C6E", power: 0.93, league: "Serie A",     logoUrl: "https://crests.football-data.org/104.png" },
+  { name: "Como",       color: "#003DA5", accent: "#fff",    power: 0.92, league: "Serie A",     logoUrl: "https://crests.football-data.org/7397.png" },
+  { name: "Pisa",       color: "#003F87", accent: "#000",    power: 0.91, league: "Serie A",     logoUrl: "https://crests.football-data.org/5890.png" },
+  { name: "Lecce",      color: "#FFD700", accent: "#E3242B", power: 0.93, league: "Serie A",     logoUrl: "https://crests.football-data.org/5765.png" },
+  { name: "Cremonese",  color: "#A62B2F", accent: "#6F6F6F", power: 0.90, league: "Serie A",     logoUrl: "https://crests.football-data.org/8529.png" },
+  { name: "Genoa",      color: "#A41E34", accent: "#00387B", power: 0.93, league: "Serie A",     logoUrl: "https://crests.football-data.org/107.png" },
+  { name: "Parma",      color: "#FEDD00", accent: "#0033A0", power: 0.92, league: "Serie A",     logoUrl: "https://crests.football-data.org/112.png" },
+  // ── Premier League ──
+  { name: "Arsenal",    color: "#EF0107", accent: "#fff",    power: 1.04, league: "Premier League", logoUrl: "https://crests.football-data.org/57.png" },
+  { name: "Liverpool",  color: "#C8102E", accent: "#fff",    power: 1.06, league: "Premier League", logoUrl: "https://crests.football-data.org/64.png" },
+  { name: "Newcastle",  color: "#241F20", accent: "#fff",    power: 1.03, league: "Premier League", logoUrl: "https://crests.football-data.org/67.png" },
+  { name: "Tottenham",  color: "#132257", accent: "#fff",    power: 1.02, league: "Premier League", logoUrl: "https://crests.football-data.org/73.png" },
+  { name: "Wolves",     color: "#FDB913", accent: "#231F20", power: 0.96, league: "Premier League", logoUrl: "https://crests.football-data.org/76.png" },
+  { name: "Nott. Forest",color: "#DD0000", accent: "#fff",   power: 0.96, league: "Premier League", logoUrl: "https://crests.football-data.org/351.png" },
+  // ── La Liga ──
+  { name: "Real Madrid",color: "#FEBE10", accent: "#00529F", power: 1.06, league: "La Liga",    logoUrl: "https://crests.football-data.org/86.png" },
+  { name: "Atl. Madrid",color: "#CB3524", accent: "#27509B", power: 1.04, league: "La Liga",    logoUrl: "https://crests.football-data.org/78.png" },
+  { name: "Villarreal", color: "#FFE114", accent: "#005DAA", power: 0.97, league: "La Liga",    logoUrl: "https://crests.football-data.org/94.png" },
+  { name: "Levante",    color: "#003DA5", accent: "#E31837", power: 0.89, league: "La Liga",    logoUrl: "https://crests.football-data.org/88.png" },
+  // ── Bundesliga ──
+  { name: "B. Dortmund",color: "#FDE100", accent: "#000",    power: 1.02, league: "Bundesliga",  logoUrl: "https://crests.football-data.org/4.png" },
+  { name: "B. Leverkusen",color: "#E32221", accent: "#000",  power: 1.05, league: "Bundesliga",  logoUrl: "https://crests.football-data.org/3.png" },
+  // ── Ligue 1 ──
+  { name: "PSG",        color: "#004170", accent: "#DA291C", power: 1.04, league: "Ligue 1",    logoUrl: "https://crests.football-data.org/524.png" },
+  { name: "Monaco",     color: "#E7192E", accent: "#fff",    power: 0.99, league: "Ligue 1",    logoUrl: "https://crests.football-data.org/548.png" },
+  // ── Altre ──
+  { name: "Benfica",    color: "#FF0000", accent: "#fff",    power: 1.01, league: "Altre",       logoUrl: "https://crests.football-data.org/5531.png" },
+  { name: "Galatasaray",color: "#FFC72C", accent: "#A6192E", power: 1.00, league: "Altre",       logoUrl: "https://crests.football-data.org/610.png" },
+  { name: "Olympiakos", color: "#CC0000", accent: "#fff",    power: 0.94, league: "Altre",       logoUrl: "https://crests.football-data.org/567.png" },
+  { name: "Club Brugge",color: "#0054A6", accent: "#000",    power: 0.95, league: "Altre",       logoUrl: "https://crests.football-data.org/851.png" },
+  { name: "Qarabag",    color: "#000000", accent: "#FFD700", power: 0.88, league: "Altre",       logoUrl: "https://crests.football-data.org/7284.png" },
+  { name: "Bodø/Glimt", color: "#FFD700", accent: "#000",   power: 0.92, league: "Altre",       logoUrl: "https://crests.football-data.org/6956.png" },
 ];
 
 // Pre-load all logo images
@@ -253,11 +273,20 @@ const replayTimeEl = document.getElementById("replayTime");
 const btnReplayPlay  = document.getElementById("replayPlay");
 const btnReplayPause = document.getElementById("replayPause");
 
-// Populate selectors
-teams.forEach((t, i) => {
-  selA.appendChild(new Option(t.name, i));
-  selB.appendChild(new Option(t.name, i));
-});
+// Populate selectors grouped by league
+const leagueOrder = ["Serie A", "Premier League", "La Liga", "Bundesliga", "Ligue 1", "Altre"];
+function populateSelect(sel) {
+  leagueOrder.forEach(league => {
+    const group = document.createElement("optgroup");
+    group.label = league;
+    teams.forEach((t, i) => {
+      if (t.league === league) group.appendChild(new Option(t.name, i));
+    });
+    if (group.children.length > 0) sel.appendChild(group);
+  });
+}
+populateSelect(selA);
+populateSelect(selB);
 selB.value = 1;
 
 // ─── Game State ─────────────────────────────────────────────────
